@@ -21,8 +21,8 @@ View your app in AI Studio: https://ai.studio/apps/87afdd10-8a0e-48bf-85ba-87e64
 
 ## Cross-Device Authentication
 
-Registration and login use the shared Express authentication API. For a deployed frontend, set the Vercel environment variable `VITE_API_URL` to the public URL of the deployed backend, for example:
+Registration and login use the shared Express authentication API. The repository default is the deployed backend below. If you deploy another backend, set the Vercel environment variable `VITE_API_URL` to that backend's public URL:
 
-`VITE_API_URL=https://your-api.example.com`
+`VITE_API_URL=https://nexgen-era-api.onrender.com`
 
 Deploy the backend separately with a persistent `DB_PATH` or hosted database. Do not rely on browser local storage for accounts; local storage is only a client-side cache.

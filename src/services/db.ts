@@ -2,9 +2,14 @@ import { User, Quiz, GameSession, Participant, Response, GameHistoryRecord } fro
 
 const CHANNEL_NAME = 'quizarena_sync_channel';
 const broadcastChannel = typeof window !== 'undefined' ? new BroadcastChannel(CHANNEL_NAME) : null;
+const DEFAULT_API_BASE_URL = 'https://nexgen-era-api.onrender.com';
 
 export const getApiBaseUrl = () => {
-  const configured = String((import.meta as any).env?.VITE_API_URL || (typeof window !== 'undefined' ? window.location.origin : 'http://localhost:4000'));
+  const configuredValue = String((import.meta as any).env?.VITE_API_URL || '').trim();
+  const isPlaceholder = configuredValue.includes('your-deployed-backend-url.com') || configuredValue.includes('your-api.example.com');
+  const configured = isPlaceholder || !configuredValue
+    ? (typeof window !== 'undefined' && window.location.hostname === 'localhost' ? window.location.origin : DEFAULT_API_BASE_URL)
+    : configuredValue;
   return configured.replace(/\/$/, '');
 };
 
