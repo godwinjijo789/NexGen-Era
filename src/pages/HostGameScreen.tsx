@@ -47,8 +47,9 @@ export const HostGameScreen: React.FC<HostGameScreenProps> = ({ game, quiz, setC
     };
   }, []);
 
-  const currentQuiz = quiz || StorageDB.getQuizzes().find(q => q.quizId === activeGame?.quizId);
+  const currentQuiz = activeGame?.quiz || quiz || StorageDB.getQuizzes().find(q => q.quizId === activeGame?.quizId);
   const currentQuestion = currentQuiz?.questions[activeGame?.currentQuestionIndex || 0];
+  const topParticipants = [...participants].sort((a, b) => b.score - a.score).slice(0, 10);
 
   // Timer effect when question is active
   useEffect(() => {
@@ -87,7 +88,8 @@ export const HostGameScreen: React.FC<HostGameScreenProps> = ({ game, quiz, setC
       ...activeGame,
       status: 'question_active',
       currentQuestionIndex: 0,
-      questionStartTime: Date.now()
+      questionStartTime: Date.now(),
+      quiz: currentQuiz || activeGame.quiz || quiz || null
     };
     StorageDB.setActiveGame(updated);
     setActiveGame(updated);
@@ -122,7 +124,11 @@ export const HostGameScreen: React.FC<HostGameScreenProps> = ({ game, quiz, setC
     StorageDB.saveParticipants(updatedParticipants);
     setParticipants(updatedParticipants);
 
-    const updatedGame: GameSession = { ...activeGame, status: 'question_result' };
+    const updatedGame: GameSession = {
+      ...activeGame,
+      status: 'question_result',
+      quiz: currentQuiz || activeGame.quiz || quiz || null
+    };
     StorageDB.setActiveGame(updatedGame);
     setActiveGame(updatedGame);
   };
@@ -157,7 +163,8 @@ export const HostGameScreen: React.FC<HostGameScreenProps> = ({ game, quiz, setC
         ...activeGame,
         status: 'question_active',
         currentQuestionIndex: nextIdx,
-        questionStartTime: Date.now()
+        questionStartTime: Date.now(),
+        quiz: currentQuiz || activeGame.quiz || quiz || null
       };
       StorageDB.setActiveGame(updatedGame);
       setActiveGame(updatedGame);
@@ -294,51 +301,87 @@ export const HostGameScreen: React.FC<HostGameScreenProps> = ({ game, quiz, setC
         )}
 
         {activeGame.status === 'question_active' && currentQuestion && (
-          <div className="space-y-5 sm:space-y-8 max-w-4xl mx-auto w-full text-center">
-            <div className="flex items-center justify-between px-4 sm:px-6 py-3 sm:py-4 rounded-xl sm:rounded-2xl bg-slate-900/80 border border-slate-800 backdrop-blur-xl">
-              <span className="text-xs sm:text-sm font-bold text-indigo-400">
-                Q{activeGame.currentQuestionIndex + 1} of {currentQuiz.questions.length}
-              </span>
-              <div className="flex items-center space-x-1.5 px-3 py-1 rounded-full bg-indigo-600/20 border border-indigo-500/30 text-indigo-300 font-extrabold text-xs sm:text-sm">
-                <Clock className="w-3.5 h-3.5" />
-                <span>{timeLeft}s</span>
-              </div>
-              <span className="text-xs sm:text-sm font-bold text-emerald-400">
-                {currentQuestionResponses.length}/{participants.length} In
-              </span>
-            </div>
-
-            <div className="p-5 sm:p-8 rounded-2xl sm:rounded-3xl bg-slate-900/80 border border-slate-800 backdrop-blur-xl shadow-2xl space-y-4 sm:space-y-6">
-              <h2 className="text-xl sm:text-3xl font-extrabold text-white leading-snug">{currentQuestion.text}</h2>
-              
-              {currentQuestion.imageUrl && (
-                <div className="max-w-md h-44 sm:h-64 mx-auto rounded-xl sm:rounded-2xl overflow-hidden border border-slate-800">
-                  <img src={currentQuestion.imageUrl} alt="Question visual" className="w-full h-full object-cover" />
+          <div className="max-w-6xl mx-auto w-full grid grid-cols-1 xl:grid-cols-[minmax(0,1.5fr)_340px] gap-5 sm:gap-8">
+            <div className="space-y-5 sm:space-y-8 text-center">
+              <div className="flex items-center justify-between px-4 sm:px-6 py-3 sm:py-4 rounded-xl sm:rounded-2xl bg-slate-900/80 border border-slate-800 backdrop-blur-xl">
+                <span className="text-xs sm:text-sm font-bold text-indigo-400">
+                  Q{activeGame.currentQuestionIndex + 1} of {currentQuiz.questions.length}
+                </span>
+                <div className="flex items-center space-x-1.5 px-3 py-1 rounded-full bg-indigo-600/20 border border-indigo-500/30 text-indigo-300 font-extrabold text-xs sm:text-sm">
+                  <Clock className="w-3.5 h-3.5" />
+                  <span>{timeLeft}s</span>
                 </div>
-              )}
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 pt-2 sm:pt-4">
-                {currentQuestion.options.map((opt, optIdx) => {
-                  const colors = ['bg-red-600/20 border-red-500/40 text-red-300', 'bg-blue-600/20 border-blue-500/40 text-blue-300', 'bg-amber-600/20 border-amber-500/40 text-amber-300', 'bg-emerald-600/20 border-emerald-500/40 text-emerald-300'];
-                  const letters = ['A', 'B', 'C', 'D'];
-                  return (
-                    <div key={optIdx} className={`p-4 sm:p-5 rounded-xl sm:rounded-2xl border ${colors[optIdx]} font-bold text-base sm:text-lg flex items-center space-x-3 sm:space-x-4 shadow-md`}>
-                      <span className="w-8 h-8 sm:w-9 sm:h-9 rounded-lg sm:rounded-xl bg-slate-950/80 flex items-center justify-center text-xs sm:text-sm font-extrabold shrink-0">
-                        {letters[optIdx]}
-                      </span>
-                      <span className="flex-1 text-left break-words">{opt}</span>
-                    </div>
-                  );
-                })}
+                <span className="text-xs sm:text-sm font-bold text-emerald-400">
+                  {currentQuestionResponses.length}/{participants.length} In
+                </span>
               </div>
+
+              <div className="p-5 sm:p-8 rounded-2xl sm:rounded-3xl bg-slate-900/80 border border-slate-800 backdrop-blur-xl shadow-2xl space-y-4 sm:space-y-6">
+                <h2 className="text-xl sm:text-3xl font-extrabold text-white leading-snug">{currentQuestion.text}</h2>
+
+                {(currentQuestion.mediaUrl || currentQuestion.imageUrl) && (
+                  <div className="max-w-md mx-auto rounded-xl sm:rounded-2xl overflow-hidden border border-slate-800 bg-slate-950">
+                    {currentQuestion.mediaType === 'video' ? (
+                      <video src={currentQuestion.mediaUrl || currentQuestion.imageUrl} controls className="w-full max-h-64 object-cover" />
+                    ) : (
+                      <img src={currentQuestion.mediaUrl || currentQuestion.imageUrl} alt="Question visual" className="w-full h-44 sm:h-64 object-cover" />
+                    )}
+                  </div>
+                )}
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 pt-2 sm:pt-4">
+                  {currentQuestion.options.map((opt, optIdx) => {
+                    const colors = ['bg-red-600/20 border-red-500/40 text-red-300', 'bg-blue-600/20 border-blue-500/40 text-blue-300', 'bg-amber-600/20 border-amber-500/40 text-amber-300', 'bg-emerald-600/20 border-emerald-500/40 text-emerald-300'];
+                    const letters = ['A', 'B', 'C', 'D'];
+                    return (
+                      <div key={optIdx} className={`p-4 sm:p-5 rounded-xl sm:rounded-2xl border ${colors[optIdx]} font-bold text-base sm:text-lg flex items-center space-x-3 sm:space-x-4 shadow-md`}>
+                        <span className="w-8 h-8 sm:w-9 sm:h-9 rounded-lg sm:rounded-xl bg-slate-950/80 flex items-center justify-center text-xs sm:text-sm font-extrabold shrink-0">
+                          {letters[optIdx]}
+                        </span>
+                        <span className="flex-1 text-left break-words">{opt}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <button
+                onClick={handleShowResults}
+                className="w-full sm:w-auto px-6 sm:px-8 py-3.5 rounded-xl sm:rounded-2xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-sm sm:text-base shadow-lg shadow-indigo-600/30 transition-all active:scale-98"
+              >
+                Skip Timer & Show Results
+              </button>
             </div>
 
-            <button
-              onClick={handleShowResults}
-              className="w-full sm:w-auto px-6 sm:px-8 py-3.5 rounded-xl sm:rounded-2xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-sm sm:text-base shadow-lg shadow-indigo-600/30 transition-all active:scale-98"
-            >
-              Skip Timer & Show Results
-            </button>
+            <aside className="rounded-2xl sm:rounded-3xl border border-slate-800 bg-slate-900/80 p-4 sm:p-5 shadow-2xl h-fit">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-sm sm:text-base font-extrabold text-white">Live Leaderboard</h3>
+                <span className="px-2 py-1 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-300 text-[10px] font-bold uppercase tracking-wider">
+                  Top 10
+                </span>
+              </div>
+
+              <div className="space-y-2.5">
+                {topParticipants.length === 0 ? (
+                  <div className="text-xs text-slate-500 italic py-6 text-center">No score yet</div>
+                ) : (
+                  topParticipants.map((p, idx) => (
+                    <div key={p.participantId} className="flex items-center justify-between rounded-xl border border-slate-800 bg-slate-950/70 px-3 py-2.5">
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <span className={`flex h-6 w-6 items-center justify-center rounded-lg text-[10px] font-black ${idx === 0 ? 'bg-amber-500 text-slate-950' : idx === 1 ? 'bg-slate-300 text-slate-950' : idx === 2 ? 'bg-orange-700 text-white' : 'bg-slate-800 text-slate-300'}`}>
+                          {idx + 1}
+                        </span>
+                        <div className="min-w-0">
+                          <div className="truncate text-sm font-bold text-white">{p.nickname}</div>
+                          <div className="text-[10px] text-slate-400">{p.correctAnswers} correct</div>
+                        </div>
+                      </div>
+                      <div className="text-sm font-black text-indigo-400">{p.score}</div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </aside>
           </div>
         )}
 

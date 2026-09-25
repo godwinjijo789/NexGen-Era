@@ -39,7 +39,8 @@ export const StartLiveGame: React.FC<StartLiveGameProps> = ({ quiz, currentUser,
       gamePin: createGamePin(),
       status: 'waiting',
       currentQuestionIndex: 0,
-      startedAt: new Date().toISOString()
+      startedAt: new Date().toISOString(),
+      quiz: { ...quiz }
     };
 
     StorageDB.setActiveGame(newGame);

@@ -21,6 +21,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser, set
   };
 
   const handleDeleteQuiz = (quizId: string) => {
+    const target = quizzes.find(q => q.quizId === quizId);
+    if (!target) return;
+
+    const confirmed = window.confirm(`Delete quiz "${target.title}"? This action cannot be undone.`);
+    if (!confirmed) return;
+
     const updated = quizzes.filter(q => q.quizId !== quizId);
     StorageDB.saveQuizzes(updated);
     setQuizzes(updated);
@@ -104,8 +110,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser, set
               </button>
               <button
                 onClick={() => {
-                  StorageDB.setActiveGame(null);
-                  window.location.reload();
+                  if (window.confirm('End this live session?')) {
+                    StorageDB.setActiveGame(null);
+                  }
                 }}
                 className="px-4 py-2.5 rounded-xl bg-red-500/20 hover:bg-red-500/30 text-red-300 border border-red-500/30 text-xs font-extrabold transition-all"
                 title="End or Clear Stuck Session"

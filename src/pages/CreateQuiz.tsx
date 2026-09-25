@@ -37,6 +37,43 @@ export const CreateQuiz: React.FC<CreateQuizProps> = ({ currentUser, setCurrentP
     }
   ]);
 
+  const handleSetQuestionOptionCount = (count: number) => {
+    const updated = [...questions];
+    const current = updated[activeQuestionIndex];
+    const baseOptions = [...(current.options || [])].slice(0, count);
+    while (baseOptions.length < count) {
+      baseOptions.push('');
+    }
+
+    updated[activeQuestionIndex] = {
+      ...current,
+      options: baseOptions,
+      correctAnswer: Math.min(current.correctAnswer ?? 0, Math.max(0, count - 1))
+    };
+
+    setQuestions(updated);
+  };
+
+  const handleMediaUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      const mediaUrl = String(reader.result || '');
+      const mediaType = file.type.startsWith('video/') ? 'video' : 'image';
+      const updated = [...questions];
+      updated[activeQuestionIndex] = {
+        ...updated[activeQuestionIndex],
+        mediaUrl,
+        mediaType,
+        imageUrl: mediaType === 'image' ? mediaUrl : undefined
+      };
+      setQuestions(updated);
+    };
+    reader.readAsDataURL(file);
+  };
+
   const [activeQuestionIndex, setActiveQuestionIndex] = useState(0);
   const [isGeneratingAI, setIsGeneratingAI] = useState(false);
   const [aiTopicInput, setAiTopicInput] = useState('');
@@ -157,6 +194,8 @@ export const CreateQuiz: React.FC<CreateQuizProps> = ({ currentUser, setCurrentP
       title,
       stream,
       difficulty,
+      showQuestionAndAnswersToParticipants: true,
+      showMediaToParticipants: true,
       questions,
       createdAt: new Date().toISOString()
     };
@@ -365,6 +404,40 @@ export const CreateQuiz: React.FC<CreateQuizProps> = ({ currentUser, setCurrentP
                 </div>
               </div>
 
+              <div className="rounded-2xl border border-slate-800 bg-slate-950/60 p-4 space-y-3">
+                <div className="flex items-center justify-between gap-3">
+                  <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400">Answer Options</label>
+                  <select
+                    value={currentQ.options.length}
+                    onChange={e => handleSetQuestionOptionCount(Number(e.target.value))}
+                    className="bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-indigo-500"
+                  >
+                    {[2, 3, 4, 5].map(count => (
+                      <option key={count} value={count}>{count} options</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div className="rounded-2xl border border-slate-800 bg-slate-950/60 p-4 space-y-4">
+                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400">Question Media</label>
+                <input
+                  type="file"
+                  accept="image/*,video/*"
+                  onChange={handleMediaUpload}
+                  className="block w-full text-sm text-slate-300 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:bg-indigo-600 file:text-white file:font-bold file:cursor-pointer"
+                />
+                {currentQ.mediaUrl && (
+                  <div className="overflow-hidden rounded-2xl border border-slate-800 bg-slate-900">
+                    {currentQ.mediaType === 'video' ? (
+                      <video src={currentQ.mediaUrl} controls className="w-full max-h-64 object-cover" />
+                    ) : (
+                      <img src={currentQ.mediaUrl} alt="Question media preview" className="w-full max-h-64 object-cover" />
+                    )}
+                  </div>
+                )}
+              </div>
+
               {/* Question Text */}
               <div>
                 <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">Question Text</label>
@@ -387,10 +460,8 @@ export const CreateQuiz: React.FC<CreateQuizProps> = ({ currentUser, setCurrentP
                 </label>
                 <div className="space-y-3">
                   {currentQ.options.map((opt, optIdx) => {
-                    const letters = ['A', 'B', 'C', 'D'];
-                    const bgColors = ['bg-red-500/10 border-red-500/30', 'bg-blue-500/10 border-blue-500/30', 'bg-amber-500/10 border-amber-500/30', 'bg-emerald-500/10 border-emerald-500/30'];
-                    const textColors = ['text-red-400', 'text-blue-400', 'text-amber-400', 'text-emerald-400'];
-                    const isCorrect = currentQ.correctAnswer === optIdx;
+                    const letters = ['A', 'B', 'C', 'D', 'E'];
+                    const isCorrect = Number(currentQ.correctAnswer) === optIdx;
 
                     return (
                       <div

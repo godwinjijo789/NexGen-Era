@@ -19,6 +19,12 @@ export const HostDashboard: React.FC<HostDashboardProps> = ({ currentUser, setCu
   const totalParticipantsCount = history.reduce((acc, h) => acc + h.totalParticipants, 0);
 
   const handleDeleteQuiz = (quizId: string) => {
+    const target = quizzes.find(q => q.quizId === quizId);
+    if (!target) return;
+
+    const confirmed = window.confirm(`Delete quiz "${target.title}"? This action cannot be undone.`);
+    if (!confirmed) return;
+
     const allQuizzes = StorageDB.getQuizzes();
     const updatedAll = allQuizzes.filter(q => q.quizId !== quizId);
     StorageDB.saveQuizzes(updatedAll);
@@ -124,8 +130,9 @@ export const HostDashboard: React.FC<HostDashboardProps> = ({ currentUser, setCu
               </button>
               <button
                 onClick={() => {
-                  StorageDB.setActiveGame(null);
-                  window.location.reload();
+                  if (window.confirm('End this live session?')) {
+                    StorageDB.setActiveGame(null);
+                  }
                 }}
                 className="px-4 py-2.5 rounded-xl bg-red-500/20 hover:bg-red-500/30 text-red-300 border border-red-500/30 text-xs font-extrabold transition-all"
                 title="End or Clear Stuck Session"

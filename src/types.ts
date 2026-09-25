@@ -17,11 +17,13 @@ export type Difficulty = 'Easy' | 'Medium' | 'Hard';
 export interface Question {
   id: string;
   text: string;
-  options: [string, string, string, string]; // A, B, C, D
-  correctAnswer: 0 | 1 | 2 | 3; // Index of correct option
+  options: string[]; // 2 to 5 options
+  correctAnswer: number; // Index of correct option
   timerSeconds: number; // 5, 10, 20, 30, 60
   difficulty: Difficulty;
   imageUrl?: string;
+  mediaUrl?: string;
+  mediaType?: 'image' | 'video';
 }
 
 export interface Quiz {
@@ -32,6 +34,8 @@ export interface Quiz {
   stream: string;
   subject?: string;
   difficulty: Difficulty;
+  showQuestionAndAnswersToParticipants?: boolean;
+  showMediaToParticipants?: boolean;
   questions: Question[];
   createdAt: string;
   updatedAt?: string;
@@ -49,6 +53,7 @@ export interface GameSession {
   questionStartTime?: number; // timestamp when current question started
   startedAt: string;
   endedAt?: string;
+  quiz?: Quiz;
 }
 
 export interface Participant {

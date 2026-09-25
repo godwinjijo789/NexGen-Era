@@ -15,7 +15,7 @@ export const QuestionResultScreen: React.FC<QuestionResultScreenProps> = ({ part
   const [responses, setResponses] = useState<Response[]>(StorageDB.getResponses());
   const { playSuccess, playError } = useSound();
 
-  const currentQuiz = StorageDB.getQuizzes().find(q => q.quizId === activeGame?.quizId);
+  const currentQuiz = activeGame?.quiz || StorageDB.getQuizzes().find(q => q.quizId === activeGame?.quizId);
   const currentQuestion = currentQuiz?.questions[activeGame?.currentQuestionIndex || 0];
 
   const myResponse = responses.find(r => r.gameId === activeGame?.gameId && r.participantId === participant?.participantId && r.questionId === currentQuestion?.id);

@@ -16,8 +16,13 @@ export const StudentQuestionScreen: React.FC<StudentQuestionScreenProps> = ({ pa
   const [timeLeft, setTimeLeft] = useState(20);
   const { playClick, playSuccess, playError } = useSound();
 
-  const currentQuiz = StorageDB.getQuizzes().find(q => q.quizId === activeGame?.quizId);
+  const currentQuiz = activeGame?.quiz || StorageDB.getQuizzes().find(q => q.quizId === activeGame?.quizId);
   const currentQuestion = currentQuiz?.questions[activeGame?.currentQuestionIndex || 0];
+  const shouldShowFullQuestionToParticipants = currentQuiz?.showQuestionAndAnswersToParticipants !== false;
+  const shouldShowMediaToParticipants = currentQuiz?.showMediaToParticipants !== false;
+  const participantVisibleOptions = shouldShowFullQuestionToParticipants
+    ? currentQuestion?.options ?? []
+    : ['Option A', 'Option B', 'Option C', 'Option D'];
 
   useEffect(() => {
     const syncGameState = async () => {
@@ -137,13 +142,19 @@ export const StudentQuestionScreen: React.FC<StudentQuestionScreenProps> = ({ pa
 
       {/* Main Question & Answer Buttons */}
       <div className="max-w-4xl mx-auto w-full py-4 sm:py-8 space-y-4 sm:space-y-6 text-center">
-        <h2 className="text-lg sm:text-2xl md:text-3xl font-black text-white leading-snug break-words px-1">
-          {currentQuestion.text}
-        </h2>
+        {shouldShowFullQuestionToParticipants && (
+          <h2 className="text-lg sm:text-2xl md:text-3xl font-black text-white leading-snug break-words px-1">
+            {currentQuestion.text}
+          </h2>
+        )}
 
-        {currentQuestion.imageUrl && (
-          <div className="max-w-md h-40 sm:h-56 mx-auto rounded-2xl sm:rounded-3xl overflow-hidden border border-slate-800 shadow-xl">
-            <img src={currentQuestion.imageUrl} alt="Question visual" className="w-full h-full object-cover" />
+        {shouldShowMediaToParticipants && (currentQuestion.mediaUrl || currentQuestion.imageUrl) && (
+          <div className="max-w-md mx-auto rounded-2xl sm:rounded-3xl overflow-hidden border border-slate-800 shadow-xl">
+            {currentQuestion.mediaType === 'video' ? (
+              <video src={currentQuestion.mediaUrl || currentQuestion.imageUrl} controls className="w-full max-h-64 object-cover" />
+            ) : (
+              <img src={currentQuestion.mediaUrl || currentQuestion.imageUrl} alt="Question visual" className="w-full h-40 sm:h-56 object-cover" />
+            )}
           </div>
         )}
 
@@ -157,7 +168,7 @@ export const StudentQuestionScreen: React.FC<StudentQuestionScreenProps> = ({ pa
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
-            {currentQuestion.options.map((opt, optIdx) => (
+            {participantVisibleOptions.map((opt, optIdx) => (
               <button
                 key={optIdx}
                 onClick={() => handleSelectAnswer(optIdx)}

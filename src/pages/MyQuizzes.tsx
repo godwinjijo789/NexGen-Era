@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { PageId, User, Quiz } from '../types';
 import { StorageDB } from '../services/db';
-import { PlusCircle, Play, BookOpen, Trash2, Search, ArrowLeft, BarChart3, Copy } from 'lucide-react';
+import { PlusCircle, Play, BookOpen, Trash2, Search, ArrowLeft, BarChart3, Copy, Settings2, Save } from 'lucide-react';
 
 interface MyQuizzesProps {
   currentUser: User | null;
@@ -12,6 +12,11 @@ interface MyQuizzesProps {
 export const MyQuizzes: React.FC<MyQuizzesProps> = ({ currentUser, setCurrentPage, onSelectQuiz }) => {
   const [search, setSearch] = useState('');
   const [quizzes, setQuizzes] = useState<Quiz[]>(() => StorageDB.getQuizzes());
+  const [settingsQuiz, setSettingsQuiz] = useState<Quiz | null>(null);
+  const [settingsDraft, setSettingsDraft] = useState({
+    showQuestionAndAnswersToParticipants: true,
+    showMediaToParticipants: true,
+  });
 
   const filteredQuizzes = quizzes.filter(q => 
     q.title.toLowerCase().includes(search.toLowerCase()) || 
@@ -19,6 +24,12 @@ export const MyQuizzes: React.FC<MyQuizzesProps> = ({ currentUser, setCurrentPag
   );
 
   const handleDelete = (quizId: string) => {
+    const target = quizzes.find(q => q.quizId === quizId);
+    if (!target) return;
+
+    const confirmed = window.confirm(`Delete quiz "${target.title}"? This action cannot be undone.`);
+    if (!confirmed) return;
+
     const allQuizzes = StorageDB.getQuizzes();
     const updated = allQuizzes.filter(q => q.quizId !== quizId);
     StorageDB.saveQuizzes(updated);
@@ -36,6 +47,31 @@ export const MyQuizzes: React.FC<MyQuizzesProps> = ({ currentUser, setCurrentPag
     const updated = [duplicated, ...allQuizzes];
     StorageDB.saveQuizzes(updated);
     setQuizzes(updated);
+  };
+
+  const openQuizSettings = (quiz: Quiz) => {
+    setSettingsQuiz(quiz);
+    setSettingsDraft({
+      showQuestionAndAnswersToParticipants: quiz.showQuestionAndAnswersToParticipants ?? true,
+      showMediaToParticipants: quiz.showMediaToParticipants ?? true,
+    });
+  };
+
+  const saveQuizSettings = () => {
+    if (!settingsQuiz) return;
+    const allQuizzes = StorageDB.getQuizzes();
+    const updated = allQuizzes.map(q =>
+      q.quizId === settingsQuiz.quizId
+        ? {
+            ...q,
+            showQuestionAndAnswersToParticipants: settingsDraft.showQuestionAndAnswersToParticipants,
+            showMediaToParticipants: settingsDraft.showMediaToParticipants,
+          }
+        : q
+    );
+    StorageDB.saveQuizzes(updated);
+    setQuizzes(updated);
+    setSettingsQuiz(null);
   };
 
   return (
@@ -142,6 +178,13 @@ export const MyQuizzes: React.FC<MyQuizzesProps> = ({ currentUser, setCurrentPag
                       <Copy className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                     </button>
                     <button
+                      onClick={() => openQuizSettings(quiz)}
+                      className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition-colors"
+                      title="Quiz Settings"
+                    >
+                      <Settings2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                    </button>
+                    <button
                       onClick={() => handleDelete(quiz.quizId)}
                       className="p-2 rounded-xl bg-red-500/10 border border-red-500/20 hover:bg-red-500/20 text-red-400 transition-colors"
                       title="Delete Quiz"
@@ -155,6 +198,63 @@ export const MyQuizzes: React.FC<MyQuizzesProps> = ({ currentUser, setCurrentPag
           )}
         </div>
       </div>
+
+      {settingsQuiz && (
+        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="w-full max-w-md rounded-3xl border border-slate-800 bg-slate-900 p-6 shadow-2xl">
+            <div className="mb-5">
+              <h3 className="text-xl font-extrabold text-white">Quiz Settings</h3>
+              <p className="text-xs text-slate-400 mt-1">{settingsQuiz.title}</p>
+            </div>
+
+            <div className="space-y-4">
+              <label className="flex items-center justify-between gap-4 rounded-xl border border-slate-800 bg-slate-950/60 p-3 cursor-pointer">
+                <div>
+                  <div className="text-sm font-semibold text-white">Show question & answers to participants</div>
+                  <div className="text-[11px] text-slate-400">Players can see the actual question and option text.</div>
+                </div>
+                <input
+                  type="checkbox"
+                  checked={settingsDraft.showQuestionAndAnswersToParticipants}
+                  onChange={e => setSettingsDraft({ ...settingsDraft, showQuestionAndAnswersToParticipants: e.target.checked })}
+                  className="h-4 w-4 rounded border-slate-700 bg-slate-900 text-indigo-600 focus:ring-indigo-500"
+                />
+              </label>
+
+              <label className="flex items-center justify-between gap-4 rounded-xl border border-slate-800 bg-slate-950/60 p-3 cursor-pointer">
+                <div>
+                  <div className="text-sm font-semibold text-white">Show media to participants</div>
+                  <div className="text-[11px] text-slate-400">Allow uploaded photos or videos to appear during the live quiz.</div>
+                </div>
+                <input
+                  type="checkbox"
+                  checked={settingsDraft.showMediaToParticipants}
+                  onChange={e => setSettingsDraft({ ...settingsDraft, showMediaToParticipants: e.target.checked })}
+                  className="h-4 w-4 rounded border-slate-700 bg-slate-900 text-indigo-600 focus:ring-indigo-500"
+                />
+              </label>
+            </div>
+
+            <div className="mt-6 flex items-center justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setSettingsQuiz(null)}
+                className="px-4 py-2.5 rounded-xl bg-slate-800 text-slate-300 font-bold text-sm"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={saveQuizSettings}
+                className="px-4 py-2.5 rounded-xl bg-indigo-600 text-white font-bold text-sm flex items-center gap-2"
+              >
+                <Save className="w-4 h-4" />
+                <span>Save</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
