@@ -30,7 +30,7 @@ export const StudentWaitingRoom: React.FC<StudentWaitingRoomProps> = ({ particip
       syncGameState();
     });
 
-    const intervalId = window.setInterval(syncGameState, 1500);
+    const intervalId = window.setInterval(syncGameState, 500);
     return () => {
       unsubscribe();
       window.clearInterval(intervalId);

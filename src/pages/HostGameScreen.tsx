@@ -40,7 +40,7 @@ export const HostGameScreen: React.FC<HostGameScreenProps> = ({ game, quiz, setC
       refreshLiveState();
     });
 
-    const intervalId = window.setInterval(refreshLiveState, 1500);
+    const intervalId = window.setInterval(refreshLiveState, 500);
     return () => {
       unsubscribe();
       window.clearInterval(intervalId);
@@ -96,6 +96,8 @@ export const HostGameScreen: React.FC<HostGameScreenProps> = ({ game, quiz, setC
   };
 
   const handleShowResults = () => {
+    if (activeGame.status !== 'question_active') return;
+
     // Calculate scores for this question
     const q = currentQuiz.questions[activeGame.currentQuestionIndex];
     const currentResponses = responses.filter(r => r.gameId === activeGame.gameId && r.questionId === q.id);

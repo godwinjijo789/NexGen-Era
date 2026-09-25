@@ -41,7 +41,7 @@ export const QuestionResultScreen: React.FC<QuestionResultScreenProps> = ({ part
       syncGameState();
     });
 
-    const intervalId = window.setInterval(syncGameState, 1500);
+    const intervalId = window.setInterval(syncGameState, 500);
     return () => {
       unsubscribe();
       window.clearInterval(intervalId);
@@ -58,6 +58,9 @@ export const QuestionResultScreen: React.FC<QuestionResultScreenProps> = ({ part
     }
   }, []);
   const currentParticipant = participants.find(p => p.participantId === participant?.participantId);
+  const topParticipants = [...participants]
+    .sort((first, second) => second.score - first.score)
+    .slice(0, 3);
 
   return (
     <div className="min-h-screen bg-slate-950 text-white flex items-center justify-center px-3.5 sm:px-4 py-8 sm:py-12">
@@ -90,6 +93,24 @@ export const QuestionResultScreen: React.FC<QuestionResultScreenProps> = ({ part
             <div className="text-xl sm:text-2xl font-black text-amber-400">#{currentParticipant?.rank || '-'}</div>
             <div className="text-[10px] sm:text-xs uppercase tracking-wider text-slate-500 font-bold mt-1">Current Rank</div>
           </div>
+        </div>
+
+        <div className="space-y-2 text-left">
+          <div className="flex items-center justify-between">
+            <h3 className="text-xs font-extrabold uppercase tracking-wider text-slate-400">Live Top 3</h3>
+            <Trophy className="w-4 h-4 text-amber-400" />
+          </div>
+          {topParticipants.map((topParticipant, index) => (
+            <div key={topParticipant.participantId} className="flex items-center justify-between rounded-xl bg-slate-950/80 border border-slate-800 px-3 py-2.5">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <span className={`w-6 h-6 rounded-lg flex items-center justify-center text-xs font-black ${index === 0 ? 'bg-amber-500 text-slate-950' : index === 1 ? 'bg-slate-300 text-slate-950' : 'bg-orange-700 text-white'}`}>
+                  #{index + 1}
+                </span>
+                <span className="truncate text-sm font-bold text-white">{topParticipant.nickname}</span>
+              </div>
+              <span className="text-sm font-black text-indigo-400">{topParticipant.score} pts</span>
+            </div>
+          ))}
         </div>
 
         <div className="text-xs text-slate-400 italic">

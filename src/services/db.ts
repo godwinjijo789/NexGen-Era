@@ -157,13 +157,15 @@ export const StorageDB = {
     if (typeof window === 'undefined') return;
 
     try {
-      const [gameRes, participantsRes] = await Promise.all([
+      const [gameRes, participantsRes, responsesRes] = await Promise.all([
         fetch(`${getApiBaseUrl()}/api/game/active`),
-        fetch(`${getApiBaseUrl()}/api/game/participants`)
+        fetch(`${getApiBaseUrl()}/api/game/participants`),
+        fetch(`${getApiBaseUrl()}/api/game/responses`)
       ]);
 
       const gamePayload = await gameRes.json().catch(() => ({ activeGame: null }));
       const participantsPayload = await participantsRes.json().catch(() => ({ participants: [] }));
+      const responsesPayload = await responsesRes.json().catch(() => ({ responses: [] }));
 
       if (gamePayload.activeGame) {
         localStorage.setItem('quizarena_active_game', JSON.stringify(gamePayload.activeGame));
@@ -173,8 +175,13 @@ export const StorageDB = {
         localStorage.setItem('quizarena_participants', JSON.stringify(participantsPayload.participants));
       }
 
+      if (Array.isArray(responsesPayload.responses)) {
+        localStorage.setItem('quizarena_responses', JSON.stringify(responsesPayload.responses));
+      }
+
       emitLocalSync({ type: 'GAME_UPDATED', game: gamePayload.activeGame ?? null });
       emitLocalSync({ type: 'PARTICIPANTS_UPDATED', participants: Array.isArray(participantsPayload.participants) ? participantsPayload.participants : [] });
+      emitLocalSync({ type: 'RESPONSES_UPDATED', responses: Array.isArray(responsesPayload.responses) ? responsesPayload.responses : [] });
     } catch {
       // Silent fallback: local browser state remains authoritative if shared backend is unavailable.
     }

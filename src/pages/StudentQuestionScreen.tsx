@@ -30,13 +30,20 @@ export const StudentQuestionScreen: React.FC<StudentQuestionScreenProps> = ({ pa
       const game = StorageDB.getActiveGame();
       setActiveGame(game);
 
+      const syncedQuestion = game?.quiz?.questions[game.currentQuestionIndex];
+      const existingResponse = StorageDB.getResponses().find(response =>
+        response.gameId === game?.gameId &&
+        response.participantId === participant?.participantId &&
+        response.questionId === syncedQuestion?.id
+      );
+
       if (game?.status === 'question_result') {
         setCurrentPage('question_result_screen');
       } else if (game?.status === 'finished') {
         setCurrentPage('final_results');
       } else if (game?.status === 'question_active') {
-        setSelectedAnswer(null);
-        setIsLocked(false);
+        setSelectedAnswer(existingResponse?.selectedAnswer ?? null);
+        setIsLocked(Boolean(existingResponse));
       }
     };
 
@@ -46,7 +53,7 @@ export const StudentQuestionScreen: React.FC<StudentQuestionScreenProps> = ({ pa
       syncGameState();
     });
 
-    const intervalId = window.setInterval(syncGameState, 1500);
+    const intervalId = window.setInterval(syncGameState, 500);
     return () => {
       unsubscribe();
       window.clearInterval(intervalId);
@@ -55,23 +62,23 @@ export const StudentQuestionScreen: React.FC<StudentQuestionScreenProps> = ({ pa
 
   // Countdown timer for participant view
   useEffect(() => {
-    if (currentQuestion) {
-      setTimeLeft(currentQuestion.timerSeconds);
+    if (currentQuestion && activeGame?.status === 'question_active') {
+      const startedAt = activeGame.questionStartTime || Date.now();
+      const updateTimeLeft = () => {
+        const elapsedSeconds = Math.floor((Date.now() - startedAt) / 1000);
+        setTimeLeft(Math.max(0, currentQuestion.timerSeconds - elapsedSeconds));
+      };
+
+      updateTimeLeft();
       const timer = setInterval(() => {
-        setTimeLeft(prev => {
-          if (prev <= 1) {
-            clearInterval(timer);
-            return 0;
-          }
-          return prev - 1;
-        });
+        updateTimeLeft();
       }, 1000);
       return () => clearInterval(timer);
     }
-  }, [activeGame?.currentQuestionIndex]);
+  }, [activeGame?.status, activeGame?.currentQuestionIndex, activeGame?.questionStartTime, currentQuestion]);
 
   const handleSelectAnswer = (optIdx: number) => {
-    if (isLocked || !currentQuestion || !participant || !activeGame) return;
+    if (isLocked || timeLeft <= 0 || !currentQuestion || !participant || !activeGame) return;
     setSelectedAnswer(optIdx);
     setIsLocked(true);
 
@@ -158,30 +165,29 @@ export const StudentQuestionScreen: React.FC<StudentQuestionScreenProps> = ({ pa
           </div>
         )}
 
-        {isLocked ? (
-          <div className="p-6 sm:p-8 rounded-2xl sm:rounded-3xl bg-slate-900/80 border border-slate-800 backdrop-blur-xl shadow-2xl space-y-3 sm:space-y-4 animate-pulse">
-            <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-indigo-600/20 border border-indigo-500/40 flex items-center justify-center text-indigo-400 mx-auto">
-              <CheckCircle2 className="w-7 h-7 sm:w-8 sm:h-8" />
-            </div>
-            <h3 className="text-xl sm:text-2xl font-extrabold text-white">Answer Locked In!</h3>
-            <p className="text-slate-400 text-xs sm:text-sm">Waiting for other participants and timer to end...</p>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
-            {participantVisibleOptions.map((opt, optIdx) => (
-              <button
-                key={optIdx}
-                onClick={() => handleSelectAnswer(optIdx)}
-                className={`min-h-[64px] sm:min-h-[80px] p-4 sm:p-5 rounded-2xl sm:rounded-3xl border text-white font-extrabold text-base sm:text-lg shadow-xl transition-all active:scale-95 flex items-center space-x-3 sm:space-x-4 ${colors[optIdx]}`}
-              >
-                <span className="w-9 h-9 sm:w-11 sm:h-11 rounded-xl sm:rounded-2xl bg-slate-950/40 flex items-center justify-center text-base sm:text-lg font-black shrink-0">
-                  {letters[optIdx]}
-                </span>
-                <span className="flex-1 text-left break-words leading-tight">{opt}</span>
-              </button>
-            ))}
+        {isLocked && (
+          <div className="p-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 text-sm font-bold">
+            <CheckCircle2 className="w-5 h-5 inline-block mr-2 align-text-bottom" />
+            Answer locked. Waiting for the host to show scores.
           </div>
         )}
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+          {participantVisibleOptions.map((opt, optIdx) => (
+            <button
+              key={optIdx}
+              type="button"
+              disabled={isLocked || timeLeft <= 0}
+              onClick={() => handleSelectAnswer(optIdx)}
+              className={`min-h-[64px] sm:min-h-[80px] p-4 sm:p-5 rounded-2xl sm:rounded-3xl border text-white font-extrabold text-base sm:text-lg shadow-xl transition-all flex items-center space-x-3 sm:space-x-4 ${colors[optIdx]} ${selectedAnswer === optIdx ? 'ring-4 ring-white bg-white/30 scale-[1.02]' : ''} ${isLocked || timeLeft <= 0 ? 'cursor-default opacity-80' : 'active:scale-95'}`}
+            >
+              <span className="w-9 h-9 sm:w-11 sm:h-11 rounded-xl sm:rounded-2xl bg-slate-950/40 flex items-center justify-center text-base sm:text-lg font-black shrink-0">
+                {letters[optIdx]}
+              </span>
+              <span className="flex-1 text-left break-words leading-tight">{opt}</span>
+            </button>
+          ))}
+        </div>
       </div>
 
       <div className="text-center text-xs text-slate-500 pb-2">
