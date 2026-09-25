@@ -46,7 +46,8 @@ export const JoinGame: React.FC<JoinGameProps> = ({ currentUser, setCurrentPage,
     let activeGame = StorageDB.getActiveGame();
     if (!activeGame) {
       try {
-        const response = await fetch('/api/game/active');
+        const API_URL = String((import.meta as any).env?.VITE_API_URL || window.location.origin).replace(/\/$/, '');
+        const response = await fetch(`${API_URL}/api/game/active`);
         const payload = await response.json();
         activeGame = payload.activeGame ?? null;
       } catch {
@@ -62,7 +63,8 @@ export const JoinGame: React.FC<JoinGameProps> = ({ currentUser, setCurrentPage,
 
     let participants = StorageDB.getParticipants();
     try {
-      const response = await fetch('/api/game/participants');
+      const API_URL = String((import.meta as any).env?.VITE_API_URL || window.location.origin).replace(/\/$/, '');
+      const response = await fetch(`${API_URL}/api/game/participants`);
       const payload = await response.json();
       if (Array.isArray(payload.participants)) {
         participants = payload.participants;
@@ -96,7 +98,8 @@ export const JoinGame: React.FC<JoinGameProps> = ({ currentUser, setCurrentPage,
     const updatedParticipants = [...participants, newParticipant];
     StorageDB.saveParticipants(updatedParticipants);
     try {
-      await fetch('/api/game/participants', {
+      const API_URL = String((import.meta as any).env?.VITE_API_URL || window.location.origin).replace(/\/$/, '');
+      await fetch(`${API_URL}/api/game/participants`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(updatedParticipants),

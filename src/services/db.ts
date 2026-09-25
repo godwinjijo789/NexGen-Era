@@ -3,6 +3,11 @@ import { User, Quiz, GameSession, Participant, Response, GameHistoryRecord } fro
 const CHANNEL_NAME = 'quizarena_sync_channel';
 const broadcastChannel = typeof window !== 'undefined' ? new BroadcastChannel(CHANNEL_NAME) : null;
 
+const getApiBaseUrl = () => {
+  const configured = String((import.meta as any).env?.VITE_API_URL || (typeof window !== 'undefined' ? window.location.origin : 'http://localhost:4000'));
+  return configured.replace(/\/$/, '');
+};
+
 const emitLocalSync = (payload: any) => {
   if (typeof window === 'undefined') return;
   broadcastChannel?.postMessage(payload);
@@ -13,7 +18,7 @@ const syncToServer = async (endpoint: string, data: unknown, method = 'POST') =>
   if (typeof window === 'undefined') return;
 
   try {
-    await fetch(`/api/game/${endpoint}`, {
+    await fetch(`${getApiBaseUrl()}/api/game/${endpoint}`, {
       method,
       headers: { 'Content-Type': 'application/json' },
       body: data === undefined ? undefined : JSON.stringify(data),
@@ -153,8 +158,8 @@ export const StorageDB = {
 
     try {
       const [gameRes, participantsRes] = await Promise.all([
-        fetch('/api/game/active'),
-        fetch('/api/game/participants')
+        fetch(`${getApiBaseUrl()}/api/game/active`),
+        fetch(`${getApiBaseUrl()}/api/game/participants`)
       ]);
 
       const gamePayload = await gameRes.json().catch(() => ({ activeGame: null }));
