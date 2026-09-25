@@ -34,6 +34,32 @@ export const JoinGame: React.FC<JoinGameProps> = ({ currentUser, setCurrentPage,
     }
   }, []);
 
+  const fetchActiveGameFromApi = async (): Promise<GameSession | null> => {
+    const candidateBases = [
+      (import.meta as any).env?.VITE_API_URL,
+      window.location.origin,
+      'http://localhost:4000'
+    ].filter(Boolean) as string[];
+
+    const uniqueBases = [...new Set(candidateBases.map(base => String(base).replace(/\/$/, '')))]
+      .filter(Boolean);
+
+    for (const baseUrl of uniqueBases) {
+      try {
+        const response = await fetch(`${baseUrl}/api/game/active`);
+        if (!response.ok) continue;
+        const payload = await response.json();
+        if (payload?.activeGame) {
+          return payload.activeGame as GameSession;
+        }
+      } catch {
+        // Try the next configured backend until one matches.
+      }
+    }
+
+    return null;
+  };
+
   const handleJoin = async (e: React.FormEvent) => {
     e.preventDefault();
     const normalizedPin = normalizeGamePin(gamePin);
@@ -43,13 +69,15 @@ export const JoinGame: React.FC<JoinGameProps> = ({ currentUser, setCurrentPage,
       return;
     }
 
-    let activeGame = StorageDB.getActiveGame();
+    await StorageDB.refreshSharedState();
+    let activeGame = StorageDB.getActiveGame() || (await fetchActiveGameFromApi());
+
     if (!activeGame) {
       try {
-        const API_URL = String((import.meta as any).env?.VITE_API_URL || window.location.origin).replace(/\/$/, '');
-        const response = await fetch(`${API_URL}/api/game/active`);
-        const payload = await response.json();
-        activeGame = payload.activeGame ?? null;
+        const fallbackFromLocal = JSON.parse(localStorage.getItem('quizarena_active_game') || 'null');
+        if (fallbackFromLocal) {
+          activeGame = fallbackFromLocal as GameSession;
+        }
       } catch {
         activeGame = null;
       }
