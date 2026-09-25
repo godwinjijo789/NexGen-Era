@@ -3,7 +3,7 @@ import { User, Quiz, GameSession, Participant, Response, GameHistoryRecord } fro
 const CHANNEL_NAME = 'quizarena_sync_channel';
 const broadcastChannel = typeof window !== 'undefined' ? new BroadcastChannel(CHANNEL_NAME) : null;
 
-const getApiBaseUrl = () => {
+export const getApiBaseUrl = () => {
   const configured = String((import.meta as any).env?.VITE_API_URL || (typeof window !== 'undefined' ? window.location.origin : 'http://localhost:4000'));
   return configured.replace(/\/$/, '');
 };

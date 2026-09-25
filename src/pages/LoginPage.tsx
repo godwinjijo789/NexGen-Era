@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { PageId, User } from '../types';
-import { StorageDB } from '../services/db';
+import { getApiBaseUrl, StorageDB } from '../services/db';
 import { Zap, Lock, Mail, ArrowRight } from 'lucide-react';
 
 interface LoginPageProps {
@@ -18,7 +18,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ setCurrentPage, onLogin })
     setError('');
 
     try {
-      const API_URL = import.meta.env.VITE_API_URL;
+      const API_URL = getApiBaseUrl();
       const response = await fetch(`${API_URL}/api/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -32,10 +32,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ setCurrentPage, onLogin })
         return;
       }
 
-      const found: User = {
-        ...data.user,
-        password,
-      };
+      const found: User = data.user;
 
       if (found.isDisabled) {
         setError('This account has been disabled by an administrator.');

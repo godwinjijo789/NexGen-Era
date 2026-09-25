@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { PageId, User, UserRole } from '../types';
-import { StorageDB } from '../services/db';
+import { getApiBaseUrl, StorageDB } from '../services/db';
 import { Zap, Lock, Mail, User as UserIcon, ArrowRight, BookOpen, Play } from 'lucide-react';
 
 interface RegisterPageProps {
@@ -21,7 +21,7 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({ setCurrentPage, onLo
     setError('');
 
     try {
-      const API_URL = import.meta.env.VITE_API_URL;
+      const API_URL = getApiBaseUrl();
       const response = await fetch(`${API_URL}/api/auth/register`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -42,10 +42,7 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({ setCurrentPage, onLo
         return;
       }
 
-      const newUser: User = {
-        ...data.user,
-        password,
-      };
+      const newUser: User = data.user;
 
       const users = StorageDB.getUsers();
       StorageDB.saveUsers([...users.filter(u => u.email.toLowerCase() !== newUser.email.toLowerCase()), newUser]);
