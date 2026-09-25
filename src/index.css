@@ -1,0 +1,64 @@
+@import "tailwindcss";
+
+html.light-theme {
+  color-scheme: light;
+}
+
+html.light-theme body {
+  background-color: #f1f5f9 !important; /* slate-100 */
+  color: #0f172a !important; /* slate-900 */
+}
+
+/* Base background overrides */
+html.light-theme .bg-slate-950 {
+  background-color: #f8fafc !important; /* slate-50 */
+}
+
+html.light-theme .bg-slate-900 {
+  background-color: #ffffff !important; /* white */
+}
+
+html.light-theme .bg-slate-900\/60,
+html.light-theme .bg-slate-900\/80,
+html.light-theme .bg-slate-950\/60,
+html.light-theme .bg-slate-950\/80,
+html.light-theme .bg-slate-900\/40 {
+  background-color: rgba(255, 255, 255, 0.95) !important;
+}
+
+/* Border overrides */
+html.light-theme .border-slate-800,
+html.light-theme .border-slate-900,
+html.light-theme .border-slate-700 {
+  border-color: #e2e8f0 !important; /* slate-200 */
+}
+
+/* Text overrides */
+html.light-theme .text-white {
+  color: #0f172a !important;
+}
+
+html.light-theme .text-slate-200,
+html.light-theme .text-slate-300,
+html.light-theme .text-slate-400 {
+  color: #475569 !important; /* slate-600 */
+}
+
+html.light-theme .text-slate-500,
+html.light-theme .text-slate-600 {
+  color: #64748b !important; /* slate-500 */
+}
+
+/* Inputs and interactive fields */
+html.light-theme input,
+html.light-theme textarea,
+html.light-theme select {
+  background-color: #ffffff !important;
+  color: #0f172a !important;
+  border-color: #cbd5e1 !important;
+}
+
+html.light-theme input::placeholder,
+html.light-theme textarea::placeholder {
+  color: #94a3b8 !important;
+}

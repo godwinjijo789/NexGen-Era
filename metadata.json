@@ -1,0 +1,6 @@
+{
+  "name": "NexGen Era",
+  "description": "A modern, interactive real-time quiz platform inspired by Kahoot with live game sessions, PIN joining, leaderboards, and analytics.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
