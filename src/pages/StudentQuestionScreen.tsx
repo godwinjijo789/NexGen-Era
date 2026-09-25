@@ -75,7 +75,7 @@ export const StudentQuestionScreen: React.FC<StudentQuestionScreenProps> = ({ pa
       }, 1000);
       return () => clearInterval(timer);
     }
-  }, [activeGame?.status, activeGame?.currentQuestionIndex, activeGame?.questionStartTime, currentQuestion]);
+  }, [activeGame?.status, activeGame?.currentQuestionIndex, activeGame?.questionStartTime, currentQuestion?.id, currentQuestion?.timerSeconds]);
 
   const handleSelectAnswer = (optIdx: number) => {
     if (isLocked || timeLeft <= 0 || !currentQuestion || !participant || !activeGame) return;

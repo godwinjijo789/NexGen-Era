@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { PageId, GameSession, Quiz, Participant, Response } from '../types';
 import { StorageDB } from '../services/db';
 import { buildJoinLink, buildQrCodeUrl } from '../utils/joinLink';
@@ -17,6 +17,7 @@ export const HostGameScreen: React.FC<HostGameScreenProps> = ({ game, quiz, setC
   const [responses, setResponses] = useState<Response[]>(StorageDB.getResponses());
   const [timeLeft, setTimeLeft] = useState<number>(20);
   const [joinLink, setJoinLink] = useState<string>('');
+  const resultsInProgress = useRef(false);
 
   useEffect(() => {
     if (game?.gamePin || activeGame?.gamePin) {
@@ -51,24 +52,28 @@ export const HostGameScreen: React.FC<HostGameScreenProps> = ({ game, quiz, setC
   const currentQuestion = currentQuiz?.questions[activeGame?.currentQuestionIndex || 0];
   const topParticipants = [...participants].sort((a, b) => b.score - a.score).slice(0, 10);
 
-  // Timer effect when question is active
+  // Use the shared start timestamp so the host timer cannot drift by interval length.
   useEffect(() => {
     if (activeGame?.status === 'question_active' && currentQuestion) {
-      setTimeLeft(currentQuestion.timerSeconds);
-      const timer = setInterval(() => {
-        setTimeLeft(prev => {
-          if (prev <= 1) {
-            clearInterval(timer);
-            // Automatically transition to result when timer hits 0
-            handleShowResults();
-            return 0;
-          }
-          return prev - 1;
-        });
-      }, 1000);
-      return () => clearInterval(timer);
+      const deadline = (activeGame.questionStartTime || Date.now()) + currentQuestion.timerSeconds * 1000;
+      const updateTimeLeft = () => {
+        const remaining = Math.max(0, deadline - Date.now());
+        setTimeLeft(Math.ceil(remaining / 1000));
+      };
+
+      updateTimeLeft();
+      const displayTimer = window.setInterval(updateTimeLeft, 100);
+      const finishTimer = window.setTimeout(() => {
+        setTimeLeft(0);
+        void handleShowResults();
+      }, Math.max(0, deadline - Date.now()));
+
+      return () => {
+        window.clearInterval(displayTimer);
+        window.clearTimeout(finishTimer);
+      };
     }
-  }, [activeGame?.status, activeGame?.currentQuestionIndex]);
+  }, [activeGame?.status, activeGame?.currentQuestionIndex, activeGame?.questionStartTime, currentQuestion?.id, currentQuestion?.timerSeconds]);
 
   if (!activeGame || !currentQuiz) {
     return (
@@ -84,6 +89,7 @@ export const HostGameScreen: React.FC<HostGameScreenProps> = ({ game, quiz, setC
   }
 
   const handleStartQuiz = () => {
+    resultsInProgress.current = false;
     const updated: GameSession = {
       ...activeGame,
       status: 'question_active',
@@ -95,15 +101,21 @@ export const HostGameScreen: React.FC<HostGameScreenProps> = ({ game, quiz, setC
     setActiveGame(updated);
   };
 
-  const handleShowResults = () => {
-    if (activeGame.status !== 'question_active') return;
+  const handleShowResults = async () => {
+    if (activeGame.status !== 'question_active' || resultsInProgress.current) return;
+    resultsInProgress.current = true;
+
+    await StorageDB.refreshSharedState();
+    const syncedGame = StorageDB.getActiveGame() || activeGame;
+    const syncedParticipants = StorageDB.getParticipants();
+    const syncedResponses = StorageDB.getResponses();
 
     // Calculate scores for this question
-    const q = currentQuiz.questions[activeGame.currentQuestionIndex];
-    const currentResponses = responses.filter(r => r.gameId === activeGame.gameId && r.questionId === q.id);
+    const q = currentQuiz.questions[syncedGame.currentQuestionIndex];
+    const currentResponses = syncedResponses.filter(r => r.gameId === syncedGame.gameId && r.questionId === q.id);
     
     // Update participant scores
-    const updatedParticipants = participants.map(p => {
+    const updatedParticipants = syncedParticipants.map(p => {
       const resp = currentResponses.find(r => r.participantId === p.participantId);
       if (resp && resp.isCorrect) {
         // Points calculation: base 1000 + speed bonus + difficulty multiplier
@@ -127,7 +139,7 @@ export const HostGameScreen: React.FC<HostGameScreenProps> = ({ game, quiz, setC
     setParticipants(updatedParticipants);
 
     const updatedGame: GameSession = {
-      ...activeGame,
+      ...syncedGame,
       status: 'question_result',
       quiz: currentQuiz || activeGame.quiz || quiz || null
     };
@@ -161,6 +173,7 @@ export const HostGameScreen: React.FC<HostGameScreenProps> = ({ game, quiz, setC
       StorageDB.saveHistory(history);
       setCurrentPage('final_results');
     } else {
+      resultsInProgress.current = false;
       const updatedGame: GameSession = {
         ...activeGame,
         status: 'question_active',
