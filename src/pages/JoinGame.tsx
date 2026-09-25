@@ -19,6 +19,14 @@ const PRESET_AVATARS = [
   'https://api.dicebear.com/7.x/avataaars/svg?seed=Fiona',
   'https://api.dicebear.com/7.x/avataaars/svg?seed=George',
   'https://api.dicebear.com/7.x/avataaars/svg?seed=Hannah',
+  'https://api.dicebear.com/9.x/fun-emoji/svg?seed=Cat',
+  'https://api.dicebear.com/9.x/fun-emoji/svg?seed=Dog',
+  'https://api.dicebear.com/9.x/fun-emoji/svg?seed=Panda',
+  'https://api.dicebear.com/9.x/fun-emoji/svg?seed=Fox',
+  'https://api.dicebear.com/9.x/fun-emoji/svg?seed=Lion',
+  'https://api.dicebear.com/9.x/fun-emoji/svg?seed=Koala',
+  'https://api.dicebear.com/9.x/fun-emoji/svg?seed=Penguin',
+  'https://api.dicebear.com/9.x/fun-emoji/svg?seed=Rabbit',
 ];
 
 export const JoinGame: React.FC<JoinGameProps> = ({ currentUser, setCurrentPage, onJoinedGame }) => {
@@ -192,7 +200,7 @@ export const JoinGame: React.FC<JoinGameProps> = ({ currentUser, setCurrentPage,
 
           <div>
             <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">Choose Avatar</label>
-            <div className="grid grid-cols-4 gap-2.5">
+            <div className="grid grid-cols-4 sm:grid-cols-8 gap-2.5 max-h-40 overflow-y-auto pr-1">
               {PRESET_AVATARS.map((avatarUrl, idx) => (
                 <button
                   key={idx}

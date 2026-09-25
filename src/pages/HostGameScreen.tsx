@@ -101,14 +101,13 @@ export const HostGameScreen: React.FC<HostGameScreenProps> = ({ game, quiz, setC
     setActiveGame(updated);
   };
 
-  const handleShowResults = async () => {
+  const handleShowResults = () => {
     if (activeGame.status !== 'question_active' || resultsInProgress.current) return;
     resultsInProgress.current = true;
 
-    await StorageDB.refreshSharedState();
-    const syncedGame = StorageDB.getActiveGame() || activeGame;
-    const syncedParticipants = StorageDB.getParticipants();
-    const syncedResponses = StorageDB.getResponses();
+    const syncedGame = activeGame;
+    const syncedParticipants = participants;
+    const syncedResponses = responses;
 
     // Calculate scores for this question
     const q = currentQuiz.questions[syncedGame.currentQuestionIndex];
@@ -316,9 +315,9 @@ export const HostGameScreen: React.FC<HostGameScreenProps> = ({ game, quiz, setC
         )}
 
         {activeGame.status === 'question_active' && currentQuestion && (
-          <div className="max-w-6xl mx-auto w-full grid grid-cols-1 xl:grid-cols-[minmax(0,1.5fr)_340px] gap-5 sm:gap-8">
-            <div className="space-y-5 sm:space-y-8 text-center">
-              <div className="flex items-center justify-between px-4 sm:px-6 py-3 sm:py-4 rounded-xl sm:rounded-2xl bg-slate-900/80 border border-slate-800 backdrop-blur-xl">
+          <div className="max-w-6xl mx-auto w-full xl:max-h-[calc(100vh-150px)] xl:overflow-hidden grid grid-cols-1 xl:grid-cols-[minmax(0,1.5fr)_340px] gap-3 sm:gap-5">
+            <div className="space-y-3 sm:space-y-4 text-center min-w-0">
+              <div className="flex items-center justify-between px-3 sm:px-5 py-2 sm:py-2.5 rounded-xl sm:rounded-2xl bg-slate-900/80 border border-slate-800 backdrop-blur-xl">
                 <span className="text-xs sm:text-sm font-bold text-indigo-400">
                   Q{activeGame.currentQuestionIndex + 1} of {currentQuiz.questions.length}
                 </span>
@@ -331,26 +330,26 @@ export const HostGameScreen: React.FC<HostGameScreenProps> = ({ game, quiz, setC
                 </span>
               </div>
 
-              <div className="p-5 sm:p-8 rounded-2xl sm:rounded-3xl bg-slate-900/80 border border-slate-800 backdrop-blur-xl shadow-2xl space-y-4 sm:space-y-6">
-                <h2 className="text-xl sm:text-3xl font-extrabold text-white leading-snug">{currentQuestion.text}</h2>
+              <div className="p-3 sm:p-5 rounded-2xl sm:rounded-3xl bg-slate-900/80 border border-slate-800 backdrop-blur-xl shadow-2xl space-y-2 sm:space-y-3">
+                <h2 className="text-lg sm:text-2xl font-extrabold text-white leading-snug">{currentQuestion.text}</h2>
 
                 {(currentQuestion.mediaUrl || currentQuestion.imageUrl) && (
                   <div className="max-w-md mx-auto rounded-xl sm:rounded-2xl overflow-hidden border border-slate-800 bg-slate-950">
                     {currentQuestion.mediaType === 'video' ? (
-                      <video src={currentQuestion.mediaUrl || currentQuestion.imageUrl} controls className="w-full max-h-64 object-cover" />
+                      <video src={currentQuestion.mediaUrl || currentQuestion.imageUrl} controls className="w-full max-h-32 sm:max-h-40 object-cover" />
                     ) : (
-                      <img src={currentQuestion.mediaUrl || currentQuestion.imageUrl} alt="Question visual" className="w-full h-44 sm:h-64 object-cover" />
+                      <img src={currentQuestion.mediaUrl || currentQuestion.imageUrl} alt="Question visual" className="w-full h-28 sm:h-40 object-cover" />
                     )}
                   </div>
                 )}
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 pt-2 sm:pt-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3 pt-1 sm:pt-2">
                   {currentQuestion.options.map((opt, optIdx) => {
                     const colors = ['bg-red-600/20 border-red-500/40 text-red-300', 'bg-blue-600/20 border-blue-500/40 text-blue-300', 'bg-amber-600/20 border-amber-500/40 text-amber-300', 'bg-emerald-600/20 border-emerald-500/40 text-emerald-300'];
                     const letters = ['A', 'B', 'C', 'D'];
                     return (
-                      <div key={optIdx} className={`p-4 sm:p-5 rounded-xl sm:rounded-2xl border ${colors[optIdx]} font-bold text-base sm:text-lg flex items-center space-x-3 sm:space-x-4 shadow-md`}>
-                        <span className="w-8 h-8 sm:w-9 sm:h-9 rounded-lg sm:rounded-xl bg-slate-950/80 flex items-center justify-center text-xs sm:text-sm font-extrabold shrink-0">
+                      <div key={optIdx} className={`p-2.5 sm:p-3 rounded-xl sm:rounded-2xl border ${colors[optIdx]} font-bold text-sm sm:text-base flex items-center space-x-2 sm:space-x-3 shadow-md`}>
+                        <span className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg sm:rounded-xl bg-slate-950/80 flex items-center justify-center text-xs font-extrabold shrink-0">
                           {letters[optIdx]}
                         </span>
                         <span className="flex-1 text-left break-words">{opt}</span>
@@ -362,36 +361,36 @@ export const HostGameScreen: React.FC<HostGameScreenProps> = ({ game, quiz, setC
 
               <button
                 onClick={handleShowResults}
-                className="w-full sm:w-auto px-6 sm:px-8 py-3.5 rounded-xl sm:rounded-2xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-sm sm:text-base shadow-lg shadow-indigo-600/30 transition-all active:scale-98"
+                className="w-full sm:w-auto px-5 sm:px-7 py-2.5 rounded-xl sm:rounded-2xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs sm:text-sm shadow-lg shadow-indigo-600/30 transition-all active:scale-98"
               >
                 Skip Timer & Show Results
               </button>
             </div>
 
-            <aside className="rounded-2xl sm:rounded-3xl border border-slate-800 bg-slate-900/80 p-4 sm:p-5 shadow-2xl h-fit">
-              <div className="flex items-center justify-between mb-4">
+            <aside className="rounded-2xl sm:rounded-3xl border border-slate-800 bg-slate-900/80 p-3 sm:p-4 shadow-2xl h-fit min-w-0">
+              <div className="flex items-center justify-between mb-2 sm:mb-3">
                 <h3 className="text-sm sm:text-base font-extrabold text-white">Live Leaderboard</h3>
                 <span className="px-2 py-1 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-300 text-[10px] font-bold uppercase tracking-wider">
                   Top 10
                 </span>
               </div>
 
-              <div className="space-y-2.5">
+              <div className="grid grid-cols-2 xl:grid-cols-1 gap-1.5 sm:gap-2">
                 {topParticipants.length === 0 ? (
                   <div className="text-xs text-slate-500 italic py-6 text-center">No score yet</div>
                 ) : (
                   topParticipants.map((p, idx) => (
-                    <div key={p.participantId} className="flex items-center justify-between rounded-xl border border-slate-800 bg-slate-950/70 px-3 py-2.5">
-                      <div className="flex items-center gap-2.5 min-w-0">
-                        <span className={`flex h-6 w-6 items-center justify-center rounded-lg text-[10px] font-black ${idx === 0 ? 'bg-amber-500 text-slate-950' : idx === 1 ? 'bg-slate-300 text-slate-950' : idx === 2 ? 'bg-orange-700 text-white' : 'bg-slate-800 text-slate-300'}`}>
+                    <div key={p.participantId} className="flex items-center justify-between rounded-lg border border-slate-800 bg-slate-950/70 px-2 py-1.5 min-w-0">
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        <span className={`flex h-5 w-5 items-center justify-center rounded-md text-[9px] font-black shrink-0 ${idx === 0 ? 'bg-amber-500 text-slate-950' : idx === 1 ? 'bg-slate-300 text-slate-950' : idx === 2 ? 'bg-orange-700 text-white' : 'bg-slate-800 text-slate-300'}`}>
                           {idx + 1}
                         </span>
                         <div className="min-w-0">
-                          <div className="truncate text-sm font-bold text-white">{p.nickname}</div>
-                          <div className="text-[10px] text-slate-400">{p.correctAnswers} correct</div>
+                          <div className="truncate text-xs font-bold text-white">{p.nickname}</div>
+                          <div className="text-[9px] text-slate-400">{p.correctAnswers} correct</div>
                         </div>
                       </div>
-                      <div className="text-sm font-black text-indigo-400">{p.score}</div>
+                      <div className="text-xs font-black text-indigo-400 ml-1">{p.score}</div>
                     </div>
                   ))
                 )}
