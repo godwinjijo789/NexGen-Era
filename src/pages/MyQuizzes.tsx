@@ -1,15 +1,16 @@
 import React, { useState } from 'react';
 import { PageId, User, Quiz, QuizFolder } from '../types';
 import { StorageDB } from '../services/db';
-import { PlusCircle, Play, BookOpen, Trash2, Search, ArrowLeft, BarChart3, Settings2, Save, FolderPlus, Folder } from 'lucide-react';
+import { PlusCircle, Play, BookOpen, Trash2, Search, ArrowLeft, BarChart3, Settings2, Save, FolderPlus, Folder, Pencil } from 'lucide-react';
 
 interface MyQuizzesProps {
   currentUser: User | null;
   setCurrentPage: (page: PageId) => void;
   onSelectQuiz: (quiz: Quiz) => void;
+  onEditQuiz: (quiz: Quiz) => void;
 }
 
-export const MyQuizzes: React.FC<MyQuizzesProps> = ({ currentUser, setCurrentPage, onSelectQuiz }) => {
+export const MyQuizzes: React.FC<MyQuizzesProps> = ({ currentUser, setCurrentPage, onSelectQuiz, onEditQuiz }) => {
   const [search, setSearch] = useState('');
   const [quizzes, setQuizzes] = useState<Quiz[]>(() => StorageDB.getQuizzes());
   const [folders, setFolders] = useState<QuizFolder[]>(() => StorageDB.getFolders());
@@ -283,6 +284,14 @@ export const MyQuizzes: React.FC<MyQuizzesProps> = ({ currentUser, setCurrentPag
                   </button>
 
                   <div className="flex items-center justify-between gap-2">
+                    <button
+                      onClick={() => onEditQuiz(quiz)}
+                      className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition-colors"
+                      title="Edit Quiz"
+                      aria-label={`Edit ${quiz.title}`}
+                    >
+                      <Pencil className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                    </button>
                     <button
                       onClick={() => {
                         onSelectQuiz(quiz);

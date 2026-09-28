@@ -1,14 +1,15 @@
 import React, { useState } from 'react';
 import { PageId, User, Quiz, GameSession } from '../types';
 import { StorageDB } from '../services/db';
-import { Shield, Users, BookOpen, Play, Trash2, UserX, UserCheck, AlertTriangle } from 'lucide-react';
+import { Shield, Users, BookOpen, Play, Trash2, UserX, UserCheck, AlertTriangle, Pencil } from 'lucide-react';
 
 interface AdminDashboardProps {
   currentUser: User | null;
   setCurrentPage: (page: PageId) => void;
+  onEditQuiz: (quiz: Quiz) => void;
 }
 
-export const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser, setCurrentPage }) => {
+export const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser, setCurrentPage, onEditQuiz }) => {
   const [users, setUsers] = useState<User[]>(StorageDB.getUsers());
   const [quizzes, setQuizzes] = useState<Quiz[]>(StorageDB.getQuizzes());
   const [activeGame, setActiveGame] = useState<GameSession | null>(StorageDB.getActiveGame());
@@ -197,13 +198,23 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser, set
                     <h4 className="font-bold text-white text-sm sm:text-base">{q.title}</h4>
                     <p className="text-xs text-slate-400">{q.subject} • {q.questions.length} Questions • {q.difficulty}</p>
                   </div>
-                  <button
-                    onClick={() => handleDeleteQuiz(q.quizId)}
-                    className="p-2 rounded-xl bg-red-500/10 border border-red-500/20 hover:bg-red-500/20 text-red-400 text-xs font-bold transition-colors flex items-center space-x-1.5 self-end sm:self-auto"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                    <span>Delete</span>
-                  </button>
+                  <div className="flex items-center gap-2 self-end sm:self-auto">
+                    <button
+                      onClick={() => onEditQuiz(q)}
+                      className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition-colors"
+                      title="Edit Quiz"
+                      aria-label={`Edit ${q.title}`}
+                    >
+                      <Pencil className="w-4 h-4" />
+                    </button>
+                    <button
+                      onClick={() => handleDeleteQuiz(q.quizId)}
+                      className="p-2 rounded-xl bg-red-500/10 border border-red-500/20 hover:bg-red-500/20 text-red-400 text-xs font-bold transition-colors flex items-center space-x-1.5"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                      <span>Delete</span>
+                    </button>
+                  </div>
                 </div>
               ))
             )}

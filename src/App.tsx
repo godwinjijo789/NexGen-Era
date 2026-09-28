@@ -26,6 +26,7 @@ export default function App() {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [currentPage, setCurrentPage] = useState<PageId>(currentUser ? (currentUser.role === 'host' ? 'host_dashboard' : currentUser.role === 'admin' ? 'admin_dashboard' : 'join_game') : 'landing');
   const [selectedQuiz, setSelectedQuiz] = useState<Quiz | null>(null);
+  const [quizBeingEdited, setQuizBeingEdited] = useState<Quiz | null>(null);
   const [activeGame, setActiveGame] = useState<GameSession | null>(null);
   const [currentParticipant, setCurrentParticipant] = useState<Participant | null>(null);
   const [realtimeError, setRealtimeError] = useState(false);
@@ -123,6 +124,10 @@ export default function App() {
             currentUser={currentUser}
             setCurrentPage={setCurrentPage}
             onSelectQuizForGame={setSelectedQuiz}
+            onEditQuiz={quiz => {
+              setQuizBeingEdited(quiz);
+              setCurrentPage('edit_quiz');
+            }}
           />
         )}
 
@@ -134,11 +139,25 @@ export default function App() {
           />
         )}
 
+        {currentPage === 'edit_quiz' && quizBeingEdited && (
+          <CreateQuiz
+            key={quizBeingEdited.quizId}
+            currentUser={currentUser}
+            setCurrentPage={setCurrentPage}
+            onQuizSaved={setSelectedQuiz}
+            quiz={quizBeingEdited}
+          />
+        )}
+
         {currentPage === 'my_quizzes' && (
           <MyQuizzes
             currentUser={currentUser}
             setCurrentPage={setCurrentPage}
             onSelectQuiz={setSelectedQuiz}
+            onEditQuiz={quiz => {
+              setQuizBeingEdited(quiz);
+              setCurrentPage('edit_quiz');
+            }}
           />
         )}
 
@@ -215,6 +234,10 @@ export default function App() {
           <AdminDashboard
             currentUser={currentUser}
             setCurrentPage={setCurrentPage}
+            onEditQuiz={quiz => {
+              setQuizBeingEdited(quiz);
+              setCurrentPage('edit_quiz');
+            }}
           />
         )}
 

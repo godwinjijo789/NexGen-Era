@@ -1,15 +1,16 @@
 import React, { useState } from 'react';
 import { PageId, User, Quiz } from '../types';
 import { StorageDB } from '../services/db';
-import { PlusCircle, Play, BookOpen, Trophy, Users, Sparkles, Clock, Trash2, ArrowRight } from 'lucide-react';
+import { PlusCircle, Play, BookOpen, Trophy, Users, Sparkles, Clock, Trash2, ArrowRight, Pencil } from 'lucide-react';
 
 interface HostDashboardProps {
   currentUser: User | null;
   setCurrentPage: (page: PageId) => void;
   onSelectQuizForGame: (quiz: Quiz) => void;
+  onEditQuiz: (quiz: Quiz) => void;
 }
 
-export const HostDashboard: React.FC<HostDashboardProps> = ({ currentUser, setCurrentPage, onSelectQuizForGame }) => {
+export const HostDashboard: React.FC<HostDashboardProps> = ({ currentUser, setCurrentPage, onSelectQuizForGame, onEditQuiz }) => {
   const [quizzes, setQuizzes] = useState<Quiz[]>(() => 
     StorageDB.getQuizzes().filter(q => !currentUser || q.hostId === currentUser.userId || q.hostId === 'user_host_1')
   );
@@ -202,6 +203,14 @@ export const HostDashboard: React.FC<HostDashboardProps> = ({ currentUser, setCu
                   </div>
 
                   <div className="pt-3 border-t border-slate-800/80 flex items-center gap-2">
+                    <button
+                      onClick={() => onEditQuiz(quiz)}
+                      className="p-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition-colors shrink-0"
+                      title="Edit Quiz"
+                      aria-label={`Edit ${quiz.title}`}
+                    >
+                      <Pencil className="w-4 h-4" />
+                    </button>
                     <button
                       onClick={() => {
                         onSelectQuizForGame(quiz);

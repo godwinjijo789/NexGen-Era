@@ -8,12 +8,13 @@ interface CreateQuizProps {
   currentUser: User | null;
   setCurrentPage: (page: PageId) => void;
   onQuizSaved: (quiz: Quiz) => void;
+  quiz?: Quiz;
 }
 
-export const CreateQuiz: React.FC<CreateQuizProps> = ({ currentUser, setCurrentPage, onQuizSaved }) => {
-  const [title, setTitle] = useState('');
-  const [stream, setStream] = useState('General');
-  const [difficulty, setDifficulty] = useState<Difficulty>('Medium');
+export const CreateQuiz: React.FC<CreateQuizProps> = ({ currentUser, setCurrentPage, onQuizSaved, quiz }) => {
+  const [title, setTitle] = useState(quiz?.title || '');
+  const [stream, setStream] = useState(quiz?.stream || quiz?.subject || 'General');
+  const [difficulty, setDifficulty] = useState<Difficulty>(quiz?.difficulty || 'Medium');
   const [defaultTimer, setDefaultTimer] = useState<number>(20);
 
   const handleApplyTimerToAll = (seconds: number) => {
@@ -25,7 +26,7 @@ export const CreateQuiz: React.FC<CreateQuizProps> = ({ currentUser, setCurrentP
     setQuestions(updated);
   };
   
-  const [questions, setQuestions] = useState<Question[]>([
+  const [questions, setQuestions] = useState<Question[]>(quiz?.questions || [
     {
       id: `q_${Date.now()}_1`,
       text: 'What is the capital city of France?',
@@ -189,20 +190,23 @@ export const CreateQuiz: React.FC<CreateQuizProps> = ({ currentUser, setCurrentP
     }
 
     const newQuiz: Quiz = {
-      quizId: `quiz_${Date.now()}`,
-      hostId: currentUser?.userId || 'user_host_1',
+      ...quiz,
+      quizId: quiz?.quizId || `quiz_${Date.now()}`,
+      hostId: quiz?.hostId || currentUser?.userId || 'user_host_1',
       title,
       stream,
       difficulty,
-      showQuestionAndAnswersToParticipants: true,
-      showMediaToParticipants: true,
       questions,
-      createdAt: new Date().toISOString()
+      createdAt: quiz?.createdAt || new Date().toISOString(),
+      updatedAt: quiz ? new Date().toISOString() : undefined,
     };
 
     const existing = StorageDB.getQuizzes();
     try {
-      await StorageDB.saveQuizzes([newQuiz, ...existing]);
+      const updated = quiz
+        ? existing.map(existingQuiz => existingQuiz.quizId === quiz.quizId ? newQuiz : existingQuiz)
+        : [newQuiz, ...existing];
+      await StorageDB.saveQuizzes(updated);
       onQuizSaved(newQuiz);
       setCurrentPage('my_quizzes');
     } catch {
@@ -239,7 +243,7 @@ export const CreateQuiz: React.FC<CreateQuizProps> = ({ currentUser, setCurrentP
               className="flex-1 sm:flex-none px-4 sm:px-6 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs sm:text-sm shadow-lg shadow-indigo-600/30 transition-all flex items-center justify-center space-x-1.5 active:scale-95"
             >
               <Save className="w-4 h-4 shrink-0" />
-              <span>Save Quiz</span>
+              <span>{quiz ? 'Save Changes' : 'Save Quiz'}</span>
             </button>
           </div>
         </div>
