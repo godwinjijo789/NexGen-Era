@@ -61,13 +61,11 @@ export const QuestionResultScreen: React.FC<QuestionResultScreenProps> = ({ part
     }
   }, []);
   const currentParticipant = participants.find(p => p.participantId === participant?.participantId);
-  const topParticipants = [...participants]
-    .sort((first, second) => second.score - first.score)
-    .slice(0, 3);
+  const topParticipants = [...participants].sort((first, second) => second.score - first.score);
 
   return (
     <div className="min-h-screen bg-slate-950 text-white flex items-center justify-center px-3.5 sm:px-4 py-8 sm:py-12">
-      <div className="max-w-md w-full bg-slate-900/90 border border-slate-800 rounded-2xl sm:rounded-3xl p-5 sm:p-8 shadow-2xl backdrop-blur-xl text-center space-y-5 sm:space-y-6">
+      <div className="max-w-2xl w-full bg-slate-900/90 border border-slate-800 rounded-2xl sm:rounded-3xl p-5 sm:p-8 shadow-2xl backdrop-blur-xl text-center space-y-5 sm:space-y-6">
         {myResponse?.isCorrect ? (
           <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl sm:rounded-3xl bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center mx-auto text-emerald-400 animate-bounce">
             <CheckCircle2 className="w-10 h-10 sm:w-12 sm:h-12" />
@@ -98,9 +96,9 @@ export const QuestionResultScreen: React.FC<QuestionResultScreenProps> = ({ part
           </div>
         </div>
 
-        <div className="space-y-2 text-left">
+        <div className="space-y-2 text-left max-h-72 overflow-y-auto pr-1">
           <div className="flex items-center justify-between">
-            <h3 className="text-xs font-extrabold uppercase tracking-wider text-slate-400">Live Top 3</h3>
+            <h3 className="text-xs font-extrabold uppercase tracking-wider text-slate-400">Live Leaderboard</h3>
             <Trophy className="w-4 h-4 text-amber-400" />
           </div>
           {topParticipants.map((topParticipant, index) => (

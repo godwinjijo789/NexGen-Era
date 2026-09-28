@@ -409,7 +409,7 @@ export const HostGameScreen: React.FC<HostGameScreenProps> = ({ game, quiz, setC
               {/* Mini Leaderboard preview */}
               <div className="space-y-2 sm:space-y-3 pt-2 sm:pt-4 text-left max-w-xl mx-auto">
                 <h4 className="text-[11px] sm:text-xs font-semibold uppercase tracking-wider text-slate-400">Top Participants</h4>
-                {participants.slice(0, 5).map((p, idx) => (
+                {participants.map((p, idx) => (
                   <div key={p.participantId} className="flex items-center justify-between p-3 sm:p-3.5 rounded-xl bg-slate-950/80 border border-slate-800">
                     <div className="flex items-center space-x-2.5 sm:space-x-3 truncate">
                       <span className={`w-5 h-5 sm:w-6 sm:h-6 rounded-lg font-bold text-xs flex items-center justify-center shrink-0 ${

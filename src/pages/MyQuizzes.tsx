@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { PageId, User, Quiz, QuizFolder } from '../types';
 import { StorageDB } from '../services/db';
-import { PlusCircle, Play, BookOpen, Trash2, Search, ArrowLeft, BarChart3, Settings2, Save, FolderPlus, Folder, Pencil } from 'lucide-react';
+import { PlusCircle, Play, BookOpen, Trash2, Search, ArrowLeft, Settings2, Save, FolderPlus, Folder, Pencil } from 'lucide-react';
 
 interface MyQuizzesProps {
   currentUser: User | null;
@@ -291,16 +291,6 @@ export const MyQuizzes: React.FC<MyQuizzesProps> = ({ currentUser, setCurrentPag
                       aria-label={`Edit ${quiz.title}`}
                     >
                       <Pencil className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                    </button>
-                    <button
-                      onClick={() => {
-                        onSelectQuiz(quiz);
-                        setCurrentPage('quiz_details');
-                      }}
-                      className="flex-1 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold text-xs flex items-center justify-center space-x-1"
-                    >
-                      <BarChart3 className="w-3.5 h-3.5" />
-                      <span>Details</span>
                     </button>
                     <button
                       onClick={() => openQuizSettings(quiz)}
