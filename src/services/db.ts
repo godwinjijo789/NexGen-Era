@@ -471,6 +471,16 @@ export const StorageDB = {
     emit({ type: 'HISTORY_UPDATED' });
   },
 
+  async clearHistory() {
+    if (!currentUser || currentUser.role !== 'host') {
+      throw new Error('Only a host can clear quiz history.');
+    }
+    const result = await supabase.from('game_history').delete().eq('host_id', currentUser.userId);
+    if (result.error) throw new Error(result.error.message);
+    history = [];
+    emit({ type: 'HISTORY_UPDATED' });
+  },
+
   subscribe(callback: (event: any) => void) {
     listeners.add(callback);
     return () => { listeners.delete(callback); };

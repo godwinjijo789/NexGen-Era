@@ -1,7 +1,7 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { PageId, User, GameHistoryRecord } from '../types';
 import { StorageDB } from '../services/db';
-import { History, ArrowLeft, Download, Trophy, Users, Calendar, Folder } from 'lucide-react';
+import { History, ArrowLeft, Download, Trophy, Users, Calendar, Folder, Trash2 } from 'lucide-react';
 
 interface QuizHistoryProps {
   currentUser: User | null;
@@ -9,7 +9,9 @@ interface QuizHistoryProps {
 }
 
 export const QuizHistory: React.FC<QuizHistoryProps> = ({ currentUser, setCurrentPage }) => {
-  const history = StorageDB.getHistory();
+  const [history, setHistory] = useState(StorageDB.getHistory());
+  const [isClearing, setIsClearing] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
   const folders = StorageDB.getFolders();
   const combinedFolderScores = folders
     .filter(folder => folder.aggregateScores)
@@ -48,10 +50,24 @@ export const QuizHistory: React.FC<QuizHistoryProps> = ({ currentUser, setCurren
     document.body.removeChild(link);
   };
 
+  const handleClearHistory = async () => {
+    if (!window.confirm('Clear all completed quiz logs? This cannot be undone.')) return;
+    setIsClearing(true);
+    setErrorMessage('');
+    try {
+      await StorageDB.clearHistory();
+      setHistory(StorageDB.getHistory());
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : 'Unable to clear quiz logs. Please try again.');
+    } finally {
+      setIsClearing(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-slate-950 text-white pb-20">
       <div className="max-w-7xl mx-auto px-3.5 sm:px-6 lg:px-8 pt-5 sm:pt-8">
-        <div className="flex items-center justify-between mb-6 sm:mb-8">
+        <div className="flex items-start justify-between gap-4 mb-6 sm:mb-8">
           <div>
             <button
               onClick={() => setCurrentPage('host_dashboard')}
@@ -63,7 +79,20 @@ export const QuizHistory: React.FC<QuizHistoryProps> = ({ currentUser, setCurren
             <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight">Quiz Session History</h1>
             <p className="text-xs sm:text-sm text-slate-400">Review past completed game sessions, winner stats, and export CSV reports.</p>
           </div>
+          {currentUser?.role === 'host' && history.length > 0 && (
+            <button
+              type="button"
+              onClick={() => void handleClearHistory()}
+              disabled={isClearing}
+              className="inline-flex shrink-0 items-center gap-2 rounded-xl border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs font-bold text-red-300 transition-colors hover:bg-red-500/20 disabled:opacity-50 sm:px-4 sm:py-2.5 sm:text-sm"
+            >
+              <Trash2 className="h-4 w-4" />
+              {isClearing ? 'Clearing...' : 'Clear Logs'}
+            </button>
+          )}
         </div>
+
+        {errorMessage && <div role="alert" className="mb-5 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300">{errorMessage}</div>}
 
         {combinedFolderScores.length > 0 && (
           <section className="mb-8 space-y-4">
