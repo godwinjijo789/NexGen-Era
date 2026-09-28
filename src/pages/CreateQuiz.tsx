@@ -2,7 +2,10 @@ import React, { useState } from 'react';
 import { PageId, User, Quiz, Question, Difficulty } from '../types';
 import { StorageDB } from '../services/db';
 import { generateQuizWithAI } from '../services/ai';
-import { PlusCircle, Sparkles, Trash2, Copy, ArrowUp, ArrowDown, Save, ArrowLeft, Image as ImageIcon, CheckCircle2, Clock } from 'lucide-react';
+import { PlusCircle, Sparkles, Trash2, Copy, ArrowUp, ArrowDown, Save, ArrowLeft, Image as ImageIcon, CheckCircle2, Clock, Eye } from 'lucide-react';
+import { QuizPreview } from '../components/QuizPreview';
+
+const timerPresets = [10, 15, 20, 30, 45, 60];
 
 interface CreateQuizProps {
   currentUser: User | null;
@@ -15,15 +18,36 @@ export const CreateQuiz: React.FC<CreateQuizProps> = ({ currentUser, setCurrentP
   const [title, setTitle] = useState(quiz?.title || '');
   const [stream, setStream] = useState(quiz?.stream || quiz?.subject || 'General');
   const [difficulty, setDifficulty] = useState<Difficulty>(quiz?.difficulty || 'Medium');
-  const [defaultTimer, setDefaultTimer] = useState<number>(20);
+  const initialTimer = quiz?.questions[0]?.timerSeconds ?? 20;
+  const [timerChoice, setTimerChoice] = useState(timerPresets.includes(initialTimer) ? String(initialTimer) : 'custom');
+  const [customTimerInput, setCustomTimerInput] = useState(String(initialTimer));
+  const [isPreviewOpen, setIsPreviewOpen] = useState(false);
 
   const handleApplyTimerToAll = (seconds: number) => {
-    setDefaultTimer(seconds);
     const updated = questions.map(q => ({
       ...q,
       timerSeconds: seconds
     }));
     setQuestions(updated);
+  };
+
+  const handleTimerChoiceChange = (value: string) => {
+    setTimerChoice(value);
+    if (value === 'custom') {
+      setCustomTimerInput(timerPresets.includes(initialTimer) ? '90' : String(initialTimer));
+      return;
+    }
+    handleApplyTimerToAll(Number(value));
+  };
+
+  const handleApplyCustomTimer = () => {
+    const seconds = Number(customTimerInput);
+    if (!Number.isInteger(seconds) || seconds < 5 || seconds > 300) {
+      setErrorMessage('Custom timer must be a whole number between 5 and 300 seconds.');
+      return;
+    }
+    setErrorMessage('');
+    handleApplyTimerToAll(seconds);
   };
   
   const [questions, setQuestions] = useState<Question[]>(quiz?.questions || [
@@ -231,6 +255,14 @@ export const CreateQuiz: React.FC<CreateQuizProps> = ({ currentUser, setCurrentP
           <div className="flex items-center gap-2.5 sm:space-x-3 w-full sm:w-auto">
             <button
               type="button"
+              onClick={() => setIsPreviewOpen(true)}
+              className="flex-1 sm:flex-none px-3.5 sm:px-4 py-2.5 rounded-xl bg-slate-800 border border-slate-700 text-slate-200 hover:bg-slate-700 font-bold text-xs sm:text-sm flex items-center justify-center space-x-1.5 transition-all"
+            >
+              <Eye className="w-4 h-4 shrink-0" />
+              <span>Preview</span>
+            </button>
+            <button
+              type="button"
               onClick={() => setShowAiModal(true)}
               className="flex-1 sm:flex-none px-3.5 sm:px-4 py-2.5 rounded-xl bg-purple-600/20 border border-purple-500/40 text-purple-300 hover:bg-purple-600/30 font-bold text-xs sm:text-sm flex items-center justify-center space-x-1.5 transition-all"
             >
@@ -287,8 +319,8 @@ export const CreateQuiz: React.FC<CreateQuizProps> = ({ currentUser, setCurrentP
                 <div className="relative">
                   <Clock className="w-4 h-4 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
                   <select
-                    value={defaultTimer}
-                    onChange={e => handleApplyTimerToAll(Number(e.target.value))}
+                    value={timerChoice}
+                    onChange={e => handleTimerChoiceChange(e.target.value)}
                     className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-10 pr-3 py-2.5 sm:py-3 text-white focus:outline-none focus:border-indigo-500 font-medium text-xs sm:text-sm cursor-pointer"
                   >
                     <option value={10}>10 Seconds per question</option>
@@ -297,8 +329,31 @@ export const CreateQuiz: React.FC<CreateQuizProps> = ({ currentUser, setCurrentP
                     <option value={30}>30 Seconds per question</option>
                     <option value={45}>45 Seconds per question</option>
                     <option value={60}>60 Seconds per question</option>
+                    <option value="custom">Custom duration</option>
                   </select>
                 </div>
+                {timerChoice === 'custom' && (
+                  <div className="mt-2 flex items-center gap-2">
+                    <input
+                      type="number"
+                      min={5}
+                      max={300}
+                      step={1}
+                      value={customTimerInput}
+                      onChange={e => setCustomTimerInput(e.target.value)}
+                      aria-label="Custom timer in seconds"
+                      className="w-full min-w-0 rounded-xl border border-slate-800 bg-slate-950 px-3 py-2 text-sm text-white focus:border-indigo-500 focus:outline-none"
+                    />
+                    <span className="shrink-0 text-xs text-slate-400">seconds</span>
+                    <button
+                      type="button"
+                      onClick={handleApplyCustomTimer}
+                      className="shrink-0 rounded-lg bg-indigo-600 px-3 py-2 text-xs font-bold text-white hover:bg-indigo-500"
+                    >
+                      Apply to all
+                    </button>
+                  </div>
+                )}
               </div>
 
               <div className="grid grid-cols-2 gap-3">
@@ -513,6 +568,14 @@ export const CreateQuiz: React.FC<CreateQuizProps> = ({ currentUser, setCurrentP
           </div>
         </form>
       </div>
+
+      {isPreviewOpen && (
+        <QuizPreview
+          title={title}
+          questions={questions}
+          onClose={() => setIsPreviewOpen(false)}
+        />
+      )}
 
       {/* AI Generator Modal */}
       {showAiModal && (

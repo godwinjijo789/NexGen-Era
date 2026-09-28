@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { PageId, Quiz } from '../types';
-import { ArrowLeft, Play, BookOpen, Clock, CheckCircle2 } from 'lucide-react';
+import { ArrowLeft, Play, BookOpen, Clock, CheckCircle2, Eye } from 'lucide-react';
+import { QuizPreview } from '../components/QuizPreview';
 
 interface QuizDetailsProps {
   quiz: Quiz | null;
@@ -9,6 +10,8 @@ interface QuizDetailsProps {
 }
 
 export const QuizDetails: React.FC<QuizDetailsProps> = ({ quiz, setCurrentPage, onSelectQuizForGame }) => {
+  const [isPreviewOpen, setIsPreviewOpen] = useState(false);
+
   if (!quiz) {
     return (
       <div className="min-h-screen bg-slate-950 text-white flex items-center justify-center p-4">
@@ -34,16 +37,26 @@ export const QuizDetails: React.FC<QuizDetailsProps> = ({ quiz, setCurrentPage, 
             <span>Back to Quizzes</span>
           </button>
 
-          <button
-            onClick={() => {
-              onSelectQuizForGame(quiz);
-              setCurrentPage('start_live_game');
-            }}
-            className="w-full sm:w-auto px-6 py-3 rounded-xl sm:rounded-2xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-sm sm:text-base shadow-lg shadow-indigo-600/30 transition-all flex items-center justify-center space-x-2 active:scale-95"
-          >
-            <Play className="w-4 h-4 fill-current" />
-            <span>Start Live Game</span>
-          </button>
+          <div className="flex w-full gap-2 sm:w-auto">
+            <button
+              type="button"
+              onClick={() => setIsPreviewOpen(true)}
+              className="flex-1 sm:flex-none px-4 py-3 rounded-xl border border-slate-700 bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-sm flex items-center justify-center space-x-2"
+            >
+              <Eye className="w-4 h-4" />
+              <span>Preview Quiz</span>
+            </button>
+            <button
+              onClick={() => {
+                onSelectQuizForGame(quiz);
+                setCurrentPage('start_live_game');
+              }}
+              className="flex-1 sm:flex-none px-6 py-3 rounded-xl sm:rounded-2xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-sm sm:text-base shadow-lg shadow-indigo-600/30 transition-all flex items-center justify-center space-x-2 active:scale-95"
+            >
+              <Play className="w-4 h-4 fill-current" />
+              <span>Start Live Game</span>
+            </button>
+          </div>
         </div>
 
         {/* Header Card */}
@@ -117,6 +130,13 @@ export const QuizDetails: React.FC<QuizDetailsProps> = ({ quiz, setCurrentPage, 
           ))}
         </div>
       </div>
+      {isPreviewOpen && (
+        <QuizPreview
+          title={quiz.title}
+          questions={quiz.questions}
+          onClose={() => setIsPreviewOpen(false)}
+        />
+      )}
     </div>
   );
 };
