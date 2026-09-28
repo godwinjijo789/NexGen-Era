@@ -316,8 +316,11 @@ export const StorageDB = {
 
   async revealGameResults(gameId: string) {
     const result = await supabase.rpc('reveal_game_results', { p_game_id: gameId });
-    requireSuccess(result);
-    await loadGame(gameId);
+    const payload = requireSuccess(result) as { game: Row; participants: Row[] };
+    activeGame = toGame(payload.game, activeGame?.quiz);
+    participants = payload.participants.map(toParticipant);
+    emit({ type: 'GAME_UPDATED', game: activeGame });
+    emit({ type: 'PARTICIPANTS_UPDATED', participants });
     return { game: activeGame, participants };
   },
 

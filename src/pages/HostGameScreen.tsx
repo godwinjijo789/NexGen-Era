@@ -130,6 +130,7 @@ export const HostGameScreen: React.FC<HostGameScreenProps> = ({ game, quiz, setC
       setResponses(StorageDB.getResponses());
     } catch (error) {
       resultsInProgress.current = false;
+      console.error('Unable to reveal game results:', error);
       setActionError(getSupabaseErrorMessage(error, 'Unable to reveal results. Please retry.'));
     }
   };
