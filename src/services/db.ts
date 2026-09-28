@@ -316,12 +316,32 @@ export const StorageDB = {
 
   async revealGameResults(gameId: string) {
     const result = await supabase.rpc('reveal_game_results', { p_game_id: gameId });
-    const payload = requireSuccess(result) as { game: Row; participants: Row[] };
-    activeGame = toGame(payload.game, activeGame?.quiz);
-    participants = payload.participants.map(toParticipant);
-    emit({ type: 'GAME_UPDATED', game: activeGame });
-    emit({ type: 'PARTICIPANTS_UPDATED', participants });
-    return { game: activeGame, participants };
+    const applySnapshot = (gameRow: Row, participantRows: Row[]) => {
+      activeGame = toGame(gameRow, activeGame?.quiz);
+      participants = participantRows.map(toParticipant);
+      emit({ type: 'GAME_UPDATED', game: activeGame });
+      emit({ type: 'PARTICIPANTS_UPDATED', participants });
+      return { game: activeGame, participants };
+    };
+
+    if (!result.error) {
+      const payload = result.data as { game?: Row; participants?: Row[] } | null;
+      if (payload?.game && Array.isArray(payload.participants)) {
+        return applySnapshot(payload.game, payload.participants);
+      }
+    }
+
+    // The RPC may have committed successfully even if its response could not be decoded or delivered.
+    const [gameResult, participantResult] = await Promise.all([
+      supabase.from('games').select('*').eq('game_id', gameId).maybeSingle(),
+      supabase.from('game_participants').select('*').eq('game_id', gameId).order('rank'),
+    ]);
+    if (!gameResult.error && gameResult.data?.status === 'question_result' && !participantResult.error) {
+      return applySnapshot(gameResult.data as Row, participantResult.data as Row[]);
+    }
+
+    if (result.error) throw new Error(result.error.message);
+    throw new Error('The results response was incomplete. Please retry.');
   },
 
   async submitResponse(response: Response) {
