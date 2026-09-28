@@ -15,8 +15,32 @@ let responses: Response[] = [];
 let history: GameHistoryRecord[] = [];
 let serverClockOffset = 0;
 const listeners = new Set<(event: any) => void>();
+const gameChannels = new Map<string, ReturnType<typeof supabase.channel>>();
 
 const emit = (event: any) => listeners.forEach(listener => listener(event));
+
+const getGameChannel = (gameId: string) => {
+  const existing = gameChannels.get(gameId);
+  if (existing) return existing;
+  const channel = supabase.channel(`game-${gameId}`);
+  gameChannels.set(gameId, channel);
+  return channel;
+};
+
+const broadcastGameState = (gameId: string, gameRow: Row, participantRows: Array<Row | Participant> = participants, responseRows: Array<Row | Response> = responses) => {
+  const channel = getGameChannel(gameId);
+  const message = {
+    type: 'broadcast',
+    event: 'game_state',
+    payload: { game: gameRow, participants: participantRows, responses: responseRows },
+  } as const;
+  void channel.send(message).then(result => {
+    if (result === 'ok') return;
+    void channel.subscribe(status => {
+      if (status === 'SUBSCRIBED') void channel.send(message);
+    });
+  });
+};
 
 export const normalizeGamePin = (value: unknown): string => String(value ?? '').replace(/\D/g, '').slice(0, 6);
 
@@ -377,6 +401,7 @@ export const StorageDB = {
     const result = await supabase.from('games').update(update).eq('game_id', game.gameId).select('*').single();
     const row = requireSuccess(result) as Row;
     activeGame = toGame(row, game.quiz || activeGame?.quiz);
+    broadcastGameState(game.gameId, row);
     emit({ type: 'GAME_UPDATED', game: activeGame });
   },
 
@@ -389,6 +414,7 @@ export const StorageDB = {
     const applySnapshot = (gameRow: Row, participantRows: Row[]) => {
       activeGame = toGame(gameRow, activeGame?.quiz);
       participants = participantRows.map(toParticipant);
+      broadcastGameState(gameId, gameRow, participantRows, responses);
       emit({ type: 'GAME_UPDATED', game: activeGame });
       emit({ type: 'PARTICIPANTS_UPDATED', participants });
       return { game: activeGame, participants };
@@ -506,7 +532,18 @@ export const StorageDB = {
   },
 
   watchGame(gameId: string) {
-    const channel = supabase.channel(`game-${gameId}`)
+    const channel = getGameChannel(gameId)
+      .on('broadcast', { event: 'game_state' }, ({ payload }) => {
+        if (!payload?.game) return;
+        activeGame = toGame(payload.game, activeGame?.quiz);
+        if (Array.isArray(payload.participants)) {
+          participants = (payload.participants as Row[]).map(row => row.participant_id ? toParticipant(row) : row as Participant);
+        }
+        if (Array.isArray(payload.responses)) responses = payload.responses as Response[];
+        emit({ type: 'GAME_UPDATED', game: activeGame });
+        emit({ type: 'PARTICIPANTS_UPDATED', participants });
+        emit({ type: 'RESPONSES_UPDATED', responses });
+      })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'games', filter: `game_id=eq.${gameId}` }, () => void this.refreshSharedState())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'game_participants', filter: `game_id=eq.${gameId}` }, () => void this.refreshSharedState())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'game_responses', filter: `game_id=eq.${gameId}` }, () => void this.refreshSharedState())
@@ -518,6 +555,9 @@ export const StorageDB = {
           window.dispatchEvent(new Event('supabase_realtime_restored'));
         }
       });
-    return () => { void supabase.removeChannel(channel); };
+    return () => {
+      gameChannels.delete(gameId);
+      void supabase.removeChannel(channel);
+    };
   },
 };
