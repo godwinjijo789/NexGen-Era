@@ -245,7 +245,7 @@ export const StorageDB = {
     }
 
     const [quizResult, folderResult, historyResult] = await Promise.all([
-      supabase.from('quizzes').select('*').order('created_at', { ascending: false }),
+      supabase.from('quizzes').select('*').eq('is_archived', false).order('created_at', { ascending: false }),
       supabase.from('quiz_folders').select('*').order('created_at', { ascending: false }),
       supabase.from('game_history').select('*').order('started_at', { ascending: false }),
     ]);
@@ -313,8 +313,20 @@ export const StorageDB = {
     }
     const removedIds = [...previousIds].filter(id => !nextIds.has(id));
     if (removedIds.length) {
-      const result = await supabase.from('quizzes').delete().in('quiz_id', removedIds);
-      if (result.error) throw new Error(result.error.message);
+      const gameResult = await supabase.from('games').select('quiz_id').in('quiz_id', removedIds);
+      if (gameResult.error) throw new Error(gameResult.error.message);
+      const referencedIds = new Set((gameResult.data as Row[]).map(game => game.quiz_id));
+      const archivedIds = removedIds.filter(id => referencedIds.has(id));
+      const deletableIds = removedIds.filter(id => !referencedIds.has(id));
+
+      if (archivedIds.length) {
+        const archiveResult = await supabase.from('quizzes').update({ is_archived: true }).in('quiz_id', archivedIds);
+        if (archiveResult.error) throw new Error(archiveResult.error.message);
+      }
+      if (deletableIds.length) {
+        const deleteResult = await supabase.from('quizzes').delete().in('quiz_id', deletableIds);
+        if (deleteResult.error) throw new Error(deleteResult.error.message);
+      }
     }
     quizzes = nextQuizzes;
     emit({ type: 'QUIZZES_UPDATED' });
