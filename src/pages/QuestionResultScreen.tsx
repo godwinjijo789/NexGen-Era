@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { PageId, GameSession, Participant, Response } from '../types';
 import { StorageDB } from '../services/db';
 import { useSound } from '../hooks/useSound';
-import { CheckCircle2, XCircle, Trophy, Award, ArrowRight } from 'lucide-react';
+import { CheckCircle2, XCircle, Trophy } from 'lucide-react';
 
 interface QuestionResultScreenProps {
   participant: Participant | null;
@@ -73,10 +73,11 @@ export const QuestionResultScreen: React.FC<QuestionResultScreenProps> = ({ part
     .sort((first, second) => second.score - first.score || first.joinedAt.localeCompare(second.joinedAt))
     .map((p, index) => ({ ...p, rank: index + 1 }));
   const currentParticipant = topParticipants.find(p => p.participantId === participant?.participantId);
+  const podiumParticipants = [topParticipants[1], topParticipants[0], topParticipants[2]];
 
   return (
-    <div className="min-h-screen bg-slate-950 text-white flex items-center justify-center px-3.5 sm:px-4 py-8 sm:py-12">
-      <div className="max-w-2xl w-full bg-slate-900/90 border border-slate-800 rounded-2xl sm:rounded-3xl p-5 sm:p-8 shadow-2xl backdrop-blur-xl text-center space-y-5 sm:space-y-6">
+    <div className="min-h-screen bg-slate-950 text-white flex items-center justify-center px-3.5 sm:px-4 py-6 sm:py-10">
+      <div className="max-w-3xl w-full bg-slate-900/90 border border-slate-800 rounded-2xl sm:rounded-3xl p-4 sm:p-8 shadow-2xl backdrop-blur-xl text-center space-y-5 sm:space-y-6">
         {myResponse?.isCorrect ? (
           <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl sm:rounded-3xl bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center mx-auto text-emerald-400 animate-bounce">
             <CheckCircle2 className="w-10 h-10 sm:w-12 sm:h-12" />
@@ -107,22 +108,67 @@ export const QuestionResultScreen: React.FC<QuestionResultScreenProps> = ({ part
           </div>
         </div>
 
-        <div className="space-y-2 text-left max-h-72 overflow-y-auto pr-1">
+        <div className="space-y-4 text-left">
           <div className="flex items-center justify-between">
-            <h3 className="text-xs font-extrabold uppercase tracking-wider text-slate-400">Live Leaderboard</h3>
+            <h3 className="text-xs font-extrabold uppercase tracking-wider text-slate-300">Live Leaderboard</h3>
             <Trophy className="w-4 h-4 text-amber-400" />
           </div>
-          {topParticipants.map((topParticipant, index) => (
-            <div key={topParticipant.participantId} className="flex items-center justify-between rounded-xl bg-slate-950/80 border border-slate-800 px-3 py-2.5">
-              <div className="flex items-center gap-2.5 min-w-0">
-                <span className={`w-6 h-6 rounded-lg flex items-center justify-center text-xs font-black ${index === 0 ? 'bg-amber-500 text-slate-950' : index === 1 ? 'bg-slate-300 text-slate-950' : 'bg-orange-700 text-white'}`}>
-                  #{index + 1}
-                </span>
-                <span className="truncate text-sm font-bold text-white">{topParticipant.nickname}</span>
+
+          {topParticipants.length === 0 ? (
+            <p className="py-8 text-center text-sm text-slate-400">No scores yet</p>
+          ) : (
+            <>
+              <div className="grid h-64 grid-cols-3 items-end gap-2 sm:h-72 sm:gap-4">
+                {podiumParticipants.map((podiumParticipant, index) => {
+                  if (!podiumParticipant) return <div key={`empty-podium-${index}`} />;
+                  const isFirst = podiumParticipant.rank === 1;
+                  const isSecond = podiumParticipant.rank === 2;
+                  const podiumHeight = isFirst ? 'h-36 sm:h-44' : isSecond ? 'h-28 sm:h-32' : 'h-24 sm:h-28';
+                  const medalColor = isFirst ? 'bg-amber-400 text-slate-950' : isSecond ? 'bg-slate-300 text-slate-950' : 'bg-orange-700 text-white';
+
+                  return (
+                    <div key={podiumParticipant.participantId} className="flex h-full min-w-0 flex-col items-center justify-end">
+                      <div className="mb-2 flex w-full min-w-0 flex-col items-center gap-1.5 text-center">
+                        {podiumParticipant.avatar ? (
+                          <img src={podiumParticipant.avatar} alt="" className="h-10 w-10 rounded-full border-2 border-slate-600 object-cover sm:h-12 sm:w-12" />
+                        ) : (
+                          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-indigo-600 text-sm font-black text-white sm:h-12 sm:w-12">
+                            {podiumParticipant.nickname.charAt(0).toUpperCase()}
+                          </div>
+                        )}
+                        <span className="w-full truncate text-xs font-bold text-white sm:text-sm">{podiumParticipant.nickname}</span>
+                      </div>
+                      <div className={`${podiumHeight} flex w-full flex-col items-center justify-center gap-2 rounded-t-xl border border-white/10 ${isFirst ? 'bg-gradient-to-b from-amber-500/40 to-amber-950/80' : isSecond ? 'bg-gradient-to-b from-slate-400/30 to-slate-800' : 'bg-gradient-to-b from-orange-700/40 to-orange-950/80'}`}>
+                        <span className={`flex h-8 w-8 items-center justify-center rounded-lg text-xs font-black ${medalColor}`}>{podiumParticipant.rank}</span>
+                        <span className="max-w-full px-1 text-center text-xs font-black text-white sm:text-sm">{podiumParticipant.score} pts</span>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
-              <span className="text-sm font-black text-indigo-400">{topParticipant.score} pts</span>
-            </div>
-          ))}
+
+              {topParticipants.length > 3 && (
+                <div className="max-h-56 space-y-2 overflow-y-auto pr-1">
+                  {topParticipants.slice(3, 10).map(topParticipant => (
+                    <div key={topParticipant.participantId} className="flex items-center justify-between rounded-xl border border-slate-800 bg-slate-950/80 px-3 py-2.5">
+                      <div className="flex min-w-0 items-center gap-3">
+                        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-slate-800 text-xs font-black text-slate-200">{topParticipant.rank}</span>
+                        {topParticipant.avatar ? (
+                          <img src={topParticipant.avatar} alt="" className="h-8 w-8 shrink-0 rounded-full object-cover" />
+                        ) : (
+                          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-indigo-600/40 text-xs font-bold text-indigo-200">
+                            {topParticipant.nickname.charAt(0).toUpperCase()}
+                          </div>
+                        )}
+                        <span className="truncate text-sm font-bold text-white">{topParticipant.nickname}</span>
+                      </div>
+                      <span className="ml-2 shrink-0 text-sm font-black text-indigo-300">{topParticipant.score} pts</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </>
+          )}
         </div>
 
         <div className="text-xs text-slate-400 italic">
