@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
-import { PageId, User, Quiz } from '../types';
+import { PageId, User, Quiz, QuizFolder } from '../types';
 import { StorageDB } from '../services/db';
-import { PlusCircle, Play, BookOpen, Trash2, Search, ArrowLeft, BarChart3, Copy, Settings2, Save } from 'lucide-react';
+import { PlusCircle, Play, BookOpen, Trash2, Search, ArrowLeft, BarChart3, Settings2, Save, FolderPlus, Folder } from 'lucide-react';
 
 interface MyQuizzesProps {
   currentUser: User | null;
@@ -12,16 +12,98 @@ interface MyQuizzesProps {
 export const MyQuizzes: React.FC<MyQuizzesProps> = ({ currentUser, setCurrentPage, onSelectQuiz }) => {
   const [search, setSearch] = useState('');
   const [quizzes, setQuizzes] = useState<Quiz[]>(() => StorageDB.getQuizzes());
+  const [folders, setFolders] = useState<QuizFolder[]>(() => StorageDB.getFolders());
+  const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
+  const [folderDialog, setFolderDialog] = useState<'create' | 'settings' | null>(null);
+  const [folderName, setFolderName] = useState('');
+  const [folderSettings, setFolderSettings] = useState<QuizFolder | null>(null);
   const [settingsQuiz, setSettingsQuiz] = useState<Quiz | null>(null);
   const [settingsDraft, setSettingsDraft] = useState({
     showQuestionAndAnswersToParticipants: true,
     showMediaToParticipants: true,
   });
 
-  const filteredQuizzes = quizzes.filter(q => 
-    q.title.toLowerCase().includes(search.toLowerCase()) || 
-    (q.stream || q.subject || '').toLowerCase().includes(search.toLowerCase())
-  );
+  const filteredQuizzes = quizzes.filter(q => {
+    const matchesFolder = selectedFolderId === null || q.folderId === selectedFolderId;
+    const matchesSearch = q.title.toLowerCase().includes(search.toLowerCase()) ||
+      (q.stream || q.subject || '').toLowerCase().includes(search.toLowerCase());
+    return matchesFolder && matchesSearch;
+  });
+
+  const openCreateFolder = () => {
+    setFolderName('');
+    setFolderDialog('create');
+  };
+
+  const handleCreateFolder = async (event: React.FormEvent) => {
+    event.preventDefault();
+    const name = folderName.trim();
+    if (!name || !currentUser) return;
+
+    const folder: QuizFolder = {
+      folderId: `folder_${Date.now()}`,
+      hostId: currentUser.userId,
+      name,
+      aggregateScores: true,
+      createdAt: new Date().toISOString(),
+    };
+    try {
+      const updatedFolders = [folder, ...folders];
+      await StorageDB.saveFolders(updatedFolders);
+      setFolders(updatedFolders);
+      setSelectedFolderId(folder.folderId);
+      setFolderDialog(null);
+    } catch {
+      window.alert('Unable to create this folder. Please try again.');
+    }
+  };
+
+  const openFolderSettings = (folder: QuizFolder) => {
+    setFolderSettings(folder);
+    setFolderName(folder.name);
+    setFolderDialog('settings');
+  };
+
+  const saveFolderSettings = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!folderSettings || !folderName.trim()) return;
+    const updatedFolders = folders.map(folder => folder.folderId === folderSettings.folderId
+      ? { ...folderSettings, name: folderName.trim() }
+      : folder);
+    try {
+      await StorageDB.saveFolders(updatedFolders);
+      setFolders(updatedFolders);
+      setFolderDialog(null);
+      setFolderSettings(null);
+    } catch {
+      window.alert('Unable to save folder settings. Please try again.');
+    }
+  };
+
+  const toggleFolderScoreMode = async (folder: QuizFolder) => {
+    const updatedFolders = folders.map(item => item.folderId === folder.folderId
+      ? { ...item, aggregateScores: !item.aggregateScores }
+      : item);
+    try {
+      await StorageDB.saveFolders(updatedFolders);
+      setFolders(updatedFolders);
+      setFolderSettings(updatedFolders.find(item => item.folderId === folder.folderId) || null);
+    } catch {
+      window.alert('Unable to save score settings. Please try again.');
+    }
+  };
+
+  const assignQuizToFolder = async (quiz: Quiz, folderId: string) => {
+    const updatedQuizzes = quizzes.map(item => item.quizId === quiz.quizId
+      ? { ...item, folderId: folderId || undefined }
+      : item);
+    try {
+      await StorageDB.saveQuizzes(updatedQuizzes);
+      setQuizzes(updatedQuizzes);
+    } catch {
+      window.alert('Unable to update quiz folder. Please try again.');
+    }
+  };
 
   const handleDelete = async (quizId: string) => {
     const target = quizzes.find(q => q.quizId === quizId);
@@ -37,23 +119,6 @@ export const MyQuizzes: React.FC<MyQuizzesProps> = ({ currentUser, setCurrentPag
       setQuizzes(updated);
     } catch {
       window.alert('Unable to delete this quiz. Please try again.');
-    }
-  };
-
-  const handleDuplicate = async (quiz: Quiz) => {
-    const duplicated: Quiz = {
-      ...quiz,
-      quizId: `quiz_${Date.now()}`,
-      title: `${quiz.title} (Copy)`,
-      createdAt: new Date().toISOString()
-    };
-    const allQuizzes = StorageDB.getQuizzes();
-    const updated = [duplicated, ...allQuizzes];
-    try {
-      await StorageDB.saveQuizzes(updated);
-      setQuizzes(updated);
-    } catch {
-      window.alert('Unable to duplicate this quiz. Please try again.');
     }
   };
 
@@ -99,10 +164,17 @@ export const MyQuizzes: React.FC<MyQuizzesProps> = ({ currentUser, setCurrentPag
               <span>Back to Dashboard</span>
             </button>
             <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight">My Quizzes ({quizzes.length})</h1>
-            <p className="text-xs sm:text-sm text-slate-400">Manage, edit, duplicate, and launch your quiz sets.</p>
+            <p className="text-xs sm:text-sm text-slate-400">Organize quizzes into folders and launch live sessions.</p>
           </div>
 
-          <div className="flex items-center">
+          <div className="flex flex-col sm:flex-row items-stretch gap-2">
+            <button
+              onClick={openCreateFolder}
+              className="w-full sm:w-auto px-4 py-3 rounded-xl sm:rounded-2xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-sm shadow-lg transition-all flex items-center justify-center space-x-2"
+            >
+              <FolderPlus className="w-4 h-4" />
+              <span>Add Folder</span>
+            </button>
             <button
               onClick={() => setCurrentPage('create_quiz')}
               className="w-full sm:w-auto px-5 py-3 rounded-xl sm:rounded-2xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-sm sm:text-base shadow-lg shadow-indigo-600/30 transition-all flex items-center justify-center space-x-2 active:scale-95"
@@ -123,6 +195,36 @@ export const MyQuizzes: React.FC<MyQuizzesProps> = ({ currentUser, setCurrentPag
             placeholder="Search quizzes by title or subject..."
             className="w-full bg-slate-900/80 border border-slate-800 rounded-xl sm:rounded-2xl pl-10 pr-4 py-3 text-white placeholder:text-slate-500 focus:outline-none focus:border-indigo-500 text-sm font-medium"
           />
+        </div>
+
+        <div className="mb-6 flex gap-2 overflow-x-auto pb-1">
+          <button
+            type="button"
+            onClick={() => setSelectedFolderId(null)}
+            className={`shrink-0 rounded-xl border px-3 py-2 text-xs font-bold transition-colors ${selectedFolderId === null ? 'border-indigo-500 bg-indigo-600 text-white' : 'border-slate-800 bg-slate-900 text-slate-400 hover:text-white'}`}
+          >
+            All Quizzes ({quizzes.length})
+          </button>
+          {folders.map(folder => (
+            <div key={folder.folderId} className="flex shrink-0 items-center rounded-xl border border-slate-800 bg-slate-900">
+              <button
+                type="button"
+                onClick={() => setSelectedFolderId(folder.folderId)}
+                className={`flex items-center gap-1.5 rounded-l-xl px-3 py-2 text-xs font-bold transition-colors ${selectedFolderId === folder.folderId ? 'bg-indigo-600 text-white' : 'text-slate-300 hover:text-white'}`}
+              >
+                <Folder className="h-3.5 w-3.5" />
+                <span>{folder.name} ({quizzes.filter(quiz => quiz.folderId === folder.folderId).length})</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => openFolderSettings(folder)}
+                title={`Settings for ${folder.name}`}
+                className="rounded-r-xl border-l border-slate-800 px-2 py-2 text-slate-400 hover:bg-slate-800 hover:text-white"
+              >
+                <Settings2 className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          ))}
         </div>
 
         {/* Quiz Cards Grid */}
@@ -150,6 +252,15 @@ export const MyQuizzes: React.FC<MyQuizzesProps> = ({ currentUser, setCurrentPag
                   </div>
                   <h3 className="text-lg font-bold mb-1.5 text-white group-hover:text-indigo-300 transition-colors line-clamp-1">{quiz.title}</h3>
                   <p className="text-xs sm:text-sm text-slate-400 line-clamp-2 mb-4">{quiz.description}</p>
+                  <select
+                    value={quiz.folderId || ''}
+                    onChange={event => void assignQuizToFolder(quiz, event.target.value)}
+                    aria-label={`Folder for ${quiz.title}`}
+                    className="mb-4 w-full rounded-lg border border-slate-800 bg-slate-950/70 px-2.5 py-2 text-xs font-semibold text-slate-300 focus:border-indigo-500 focus:outline-none"
+                  >
+                    <option value="">No folder</option>
+                    {folders.map(folder => <option key={folder.folderId} value={folder.folderId}>{folder.name}</option>)}
+                  </select>
                   <div className="flex items-center justify-between text-xs text-slate-500 font-medium mb-4 sm:mb-6">
                     <span className="flex items-center space-x-1">
                       <BookOpen className="w-3.5 h-3.5" />
@@ -181,13 +292,6 @@ export const MyQuizzes: React.FC<MyQuizzesProps> = ({ currentUser, setCurrentPag
                     >
                       <BarChart3 className="w-3.5 h-3.5" />
                       <span>Details</span>
-                    </button>
-                    <button
-                      onClick={() => handleDuplicate(quiz)}
-                      className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition-colors"
-                      title="Duplicate Quiz"
-                    >
-                      <Copy className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                     </button>
                     <button
                       onClick={() => openQuizSettings(quiz)}
@@ -265,6 +369,43 @@ export const MyQuizzes: React.FC<MyQuizzesProps> = ({ currentUser, setCurrentPag
               </button>
             </div>
           </div>
+        </div>
+      )}
+
+      {folderDialog && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 p-4 backdrop-blur-md">
+          <form onSubmit={folderDialog === 'create' ? handleCreateFolder : saveFolderSettings} className="w-full max-w-md rounded-3xl border border-slate-800 bg-slate-900 p-6 shadow-2xl">
+            <h3 className="text-xl font-extrabold text-white">{folderDialog === 'create' ? 'Add Folder' : 'Folder Settings'}</h3>
+            <p className="mt-1 text-xs text-slate-400">Group quizzes and choose how their scores are tracked.</p>
+            <label className="mt-5 block text-xs font-bold uppercase tracking-wider text-slate-400">Folder name</label>
+            <input
+              autoFocus
+              value={folderName}
+              onChange={event => setFolderName(event.target.value)}
+              maxLength={80}
+              required
+              placeholder="Science Term 1"
+              className="mt-2 w-full rounded-xl border border-slate-800 bg-slate-950 px-4 py-3 text-sm text-white outline-none focus:border-indigo-500"
+            />
+            {folderDialog === 'settings' && folderSettings && (
+              <label className="mt-4 flex cursor-pointer items-start justify-between gap-4 rounded-xl border border-slate-800 bg-slate-950/60 p-3">
+                <span>
+                  <span className="block text-sm font-semibold text-white">Combine scores across quizzes</span>
+                  <span className="mt-1 block text-[11px] text-slate-400">Use one cumulative score for every quiz in this folder.</span>
+                </span>
+                <input
+                  type="checkbox"
+                  checked={folderSettings.aggregateScores}
+                  onChange={() => void toggleFolderScoreMode(folderSettings)}
+                  className="mt-1 h-4 w-4 rounded border-slate-700 bg-slate-900 text-indigo-600 focus:ring-indigo-500"
+                />
+              </label>
+            )}
+            <div className="mt-6 flex justify-end gap-3">
+              <button type="button" onClick={() => { setFolderDialog(null); setFolderSettings(null); }} className="rounded-xl bg-slate-800 px-4 py-2.5 text-sm font-bold text-slate-300">Cancel</button>
+              <button type="submit" className="rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-bold text-white">Save</button>
+            </div>
+          </form>
         </div>
       )}
     </div>

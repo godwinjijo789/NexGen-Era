@@ -1,6 +1,6 @@
 import React from 'react';
 import { PageId, User } from '../types';
-import { Zap, Play, Sparkles, Trophy, Users, ArrowRight } from 'lucide-react';
+import { Zap, Play, Sparkles, Trophy } from 'lucide-react';
 
 interface LandingPageProps {
   setCurrentPage: (page: PageId) => void;
@@ -34,27 +34,14 @@ export const LandingPage: React.FC<LandingPageProps> = ({ setCurrentPage, curren
               Engage participants instantly with synchronized questions, live countdown timers, speed scoring, and real-time leaderboards.
             </p>
 
-            {/* CTA Buttons */}
-            <div className="flex flex-col sm:flex-row items-center justify-center gap-3.5 sm:gap-5 w-full max-w-md sm:max-w-none mx-auto">
-              <button
-                onClick={() => setCurrentPage('join_game')}
-                className="w-full sm:w-auto min-h-[52px] px-6 sm:px-8 py-3.5 sm:py-4 rounded-xl sm:rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-600 text-white font-extrabold text-base sm:text-lg shadow-xl shadow-emerald-500/25 active:scale-95 transition-all flex items-center justify-center space-x-2.5"
-              >
-                <Play className="w-5 h-5 fill-current" />
-                <span>Join Game with PIN</span>
-              </button>
+            <button
+              onClick={() => setCurrentPage('join_game')}
+              className="min-h-[52px] px-6 sm:px-8 py-3.5 sm:py-4 rounded-xl sm:rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-600 text-white font-extrabold text-base sm:text-lg shadow-xl shadow-emerald-500/25 active:scale-95 transition-all inline-flex items-center justify-center space-x-2.5"
+            >
+              <Play className="w-5 h-5 fill-current" />
+              <span>Join Game PIN</span>
+            </button>
 
-              <button
-                onClick={() => {
-                  if (currentUser?.role === 'host') setCurrentPage('host_dashboard');
-                  else setCurrentPage(currentUser ? 'host_dashboard' : 'login');
-                }}
-                className="w-full sm:w-auto min-h-[52px] px-6 sm:px-8 py-3.5 sm:py-4 rounded-xl sm:rounded-2xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-base sm:text-lg shadow-xl shadow-indigo-600/30 transition-all active:scale-95 flex items-center justify-center space-x-2.5"
-              >
-                <span>Host a Quiz</span>
-                <ArrowRight className="w-5 h-5" />
-              </button>
-            </div>
           </div>
 
           {/* Feature Highlights Grid */}

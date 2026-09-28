@@ -1,7 +1,7 @@
 import React from 'react';
 import { PageId, User, GameHistoryRecord } from '../types';
 import { StorageDB } from '../services/db';
-import { History, ArrowLeft, Download, Trophy, Users, Calendar } from 'lucide-react';
+import { History, ArrowLeft, Download, Trophy, Users, Calendar, Folder } from 'lucide-react';
 
 interface QuizHistoryProps {
   currentUser: User | null;
@@ -10,6 +10,26 @@ interface QuizHistoryProps {
 
 export const QuizHistory: React.FC<QuizHistoryProps> = ({ currentUser, setCurrentPage }) => {
   const history = StorageDB.getHistory();
+  const folders = StorageDB.getFolders();
+  const combinedFolderScores = folders
+    .filter(folder => folder.aggregateScores)
+    .map(folder => {
+      const totals = new Map<string, { nickname: string; score: number; correctAnswers: number }>();
+      const folderGames = history.filter(record => record.folderId === folder.folderId);
+      folderGames.forEach(record => record.participants.forEach(participant => {
+        const key = participant.nickname.trim().toLowerCase();
+        const current = totals.get(key) || { nickname: participant.nickname, score: 0, correctAnswers: 0 };
+        current.score += participant.score;
+        current.correctAnswers += participant.correctAnswers;
+        totals.set(key, current);
+      }));
+      return {
+        folder,
+        gameCount: folderGames.length,
+        participants: [...totals.values()].sort((first, second) => second.score - first.score),
+      };
+    })
+    .filter(summary => summary.gameCount > 0 && summary.participants.length > 0);
 
   const handleExportCSV = (record: GameHistoryRecord) => {
     let csvContent = "data:text/csv;charset=utf-8,";
@@ -44,6 +64,39 @@ export const QuizHistory: React.FC<QuizHistoryProps> = ({ currentUser, setCurren
             <p className="text-xs sm:text-sm text-slate-400">Review past completed game sessions, winner stats, and export CSV reports.</p>
           </div>
         </div>
+
+        {combinedFolderScores.length > 0 && (
+          <section className="mb-8 space-y-4">
+            <div>
+              <h2 className="flex items-center gap-2 text-xl font-extrabold text-white">
+                <Folder className="h-5 w-5 text-indigo-400" />
+                Combined Folder Scores
+              </h2>
+              <p className="mt-1 text-xs text-slate-400">Scores are cumulative because these folders have “Combine scores across quizzes” enabled.</p>
+            </div>
+            <div className="grid gap-4 lg:grid-cols-2">
+              {combinedFolderScores.map(summary => (
+                <div key={summary.folder.folderId} className="rounded-2xl border border-indigo-500/20 bg-indigo-500/5 p-4">
+                  <div className="mb-3 flex items-center justify-between">
+                    <div>
+                      <h3 className="font-bold text-white">{summary.folder.name}</h3>
+                      <p className="text-[11px] text-slate-400">{summary.gameCount} completed quiz session{summary.gameCount === 1 ? '' : 's'}</p>
+                    </div>
+                    <Trophy className="h-5 w-5 text-amber-400" />
+                  </div>
+                  <div className="space-y-2">
+                    {summary.participants.slice(0, 5).map((participant, index) => (
+                      <div key={participant.nickname.toLowerCase()} className="flex items-center justify-between rounded-xl border border-slate-800 bg-slate-950/70 px-3 py-2">
+                        <span className="text-sm font-bold text-slate-200">#{index + 1} {participant.nickname}</span>
+                        <span className="text-sm font-black text-indigo-400">{participant.score} pts</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
 
         {history.length === 0 ? (
           <div className="p-8 sm:p-12 rounded-2xl sm:rounded-3xl bg-slate-900/60 border border-slate-800 text-center space-y-3 sm:space-y-4">

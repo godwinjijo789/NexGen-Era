@@ -29,6 +29,7 @@ export interface Question {
 export interface Quiz {
   quizId: string;
   hostId: string;
+  folderId?: string;
   title: string;
   description?: string;
   stream: string;
@@ -41,11 +42,21 @@ export interface Quiz {
   updatedAt?: string;
 }
 
+export interface QuizFolder {
+  folderId: string;
+  hostId: string;
+  name: string;
+  aggregateScores: boolean;
+  createdAt: string;
+  updatedAt?: string;
+}
+
 export type GameStatus = 'waiting' | 'question_active' | 'question_result' | 'leaderboard' | 'finished';
 
 export interface GameSession {
   gameId: string;
   quizId: string;
+  folderId?: string;
   hostId: string;
   gamePin: string; // 6 digits
   status: GameStatus;
@@ -85,6 +96,7 @@ export interface Response {
 export interface GameHistoryRecord {
   historyId: string;
   gameId: string;
+  folderId?: string;
   quizTitle: string;
   hostName: string;
   totalParticipants: number;

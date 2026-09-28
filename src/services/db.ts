@@ -1,4 +1,4 @@
-import { User, Quiz, GameSession, Participant, Response, GameHistoryRecord } from '../types';
+import { User, Quiz, QuizFolder, GameSession, Participant, Response, GameHistoryRecord } from '../types';
 
 import { getSupabaseErrorMessage, supabase } from '../lib/supabase';
 
@@ -7,6 +7,7 @@ type Row = Record<string, any>;
 let currentUser: User | null = null;
 let users: User[] = [];
 let quizzes: Quiz[] = [];
+let folders: QuizFolder[] = [];
 let activeGame: GameSession | null = null;
 let currentParticipant: Participant | null = null;
 let participants: Participant[] = [];
@@ -32,6 +33,7 @@ const toUser = (row: Row): User => ({
 const toQuiz = (row: Row): Quiz => ({
   quizId: row.quiz_id,
   hostId: row.host_id,
+  folderId: row.folder_id || undefined,
   title: row.title,
   description: row.description || undefined,
   stream: row.stream,
@@ -40,6 +42,15 @@ const toQuiz = (row: Row): Quiz => ({
   showQuestionAndAnswersToParticipants: row.show_question_and_answers_to_participants,
   showMediaToParticipants: row.show_media_to_participants,
   questions: row.questions || [],
+  createdAt: row.created_at,
+  updatedAt: row.updated_at,
+});
+
+const toFolder = (row: Row): QuizFolder => ({
+  folderId: row.folder_id,
+  hostId: row.host_id,
+  name: row.name,
+  aggregateScores: row.aggregate_scores,
   createdAt: row.created_at,
   updatedAt: row.updated_at,
 });
@@ -72,6 +83,7 @@ const toResponse = (row: Row): Response => ({
 const toGame = (row: Row, quiz?: Quiz): GameSession => ({
   gameId: row.game_id,
   quizId: row.quiz_id,
+  folderId: quiz?.folderId || row.quiz_snapshot?.folderId || undefined,
   hostId: row.host_id,
   gamePin: row.game_pin,
   status: row.status,
@@ -86,6 +98,7 @@ const toGame = (row: Row, quiz?: Quiz): GameSession => ({
 const toHistory = (row: Row): GameHistoryRecord => ({
   historyId: row.history_id,
   gameId: row.game_id,
+  folderId: row.folder_id || undefined,
   quizTitle: row.quiz_title,
   hostName: row.host_name,
   totalParticipants: row.total_participants,
@@ -99,6 +112,7 @@ const toHistory = (row: Row): GameHistoryRecord => ({
 const quizRow = (quiz: Quiz) => ({
   quiz_id: quiz.quizId,
   host_id: quiz.hostId,
+  folder_id: quiz.folderId || null,
   title: quiz.title,
   description: quiz.description || null,
   stream: quiz.stream || quiz.subject || 'General',
@@ -140,6 +154,7 @@ export const StorageDB = {
   getUsers: () => users,
   getCurrentUser: () => currentUser,
   getQuizzes: () => quizzes,
+  getFolders: () => folders,
   getActiveGame: () => activeGame,
   getCurrentParticipant: () => currentParticipant,
   getParticipants: () => participants,
@@ -173,6 +188,7 @@ export const StorageDB = {
     if (!user) {
       users = [];
       quizzes = [];
+      folders = [];
       history = [];
       activeGame = null;
       currentParticipant = null;
@@ -182,11 +198,13 @@ export const StorageDB = {
       return;
     }
 
-    const [quizResult, historyResult] = await Promise.all([
+    const [quizResult, folderResult, historyResult] = await Promise.all([
       supabase.from('quizzes').select('*').order('created_at', { ascending: false }),
+      supabase.from('quiz_folders').select('*').order('created_at', { ascending: false }),
       supabase.from('game_history').select('*').order('started_at', { ascending: false }),
     ]);
     quizzes = (requireSuccess(quizResult) as Row[]).map(toQuiz);
+    folders = (folderResult.error ? [] : (folderResult.data as Row[])).map(toFolder);
     history = (requireSuccess(historyResult) as Row[]).map(toHistory);
 
     if (user.role === 'admin') {
@@ -254,6 +272,27 @@ export const StorageDB = {
     }
     quizzes = nextQuizzes;
     emit({ type: 'QUIZZES_UPDATED' });
+  },
+
+  async saveFolders(nextFolders: QuizFolder[]) {
+    const previousIds = new Set(folders.map(folder => folder.folderId));
+    const nextIds = new Set(nextFolders.map(folder => folder.folderId));
+    if (nextFolders.length) {
+      const result = await supabase.from('quiz_folders').upsert(nextFolders.map(folder => ({
+        folder_id: folder.folderId,
+        host_id: folder.hostId,
+        name: folder.name.trim(),
+        aggregate_scores: folder.aggregateScores,
+      })), { onConflict: 'folder_id' });
+      if (result.error) throw new Error(result.error.message);
+    }
+    const removedIds = [...previousIds].filter(id => !nextIds.has(id));
+    if (removedIds.length) {
+      const result = await supabase.from('quiz_folders').delete().in('folder_id', removedIds);
+      if (result.error) throw new Error(result.error.message);
+    }
+    folders = nextFolders;
+    emit({ type: 'FOLDERS_UPDATED' });
   },
 
   async startGame(quiz: Quiz, gamePin: string) {
@@ -363,6 +402,7 @@ export const StorageDB = {
       const result = await supabase.from('game_history').upsert({
         history_id: latest.historyId,
         game_id: latest.gameId,
+        folder_id: latest.folderId || null,
         host_id: currentUser.userId,
         quiz_title: latest.quizTitle,
         host_name: latest.hostName === 'Host' ? currentUser.name : latest.hostName || currentUser.name,

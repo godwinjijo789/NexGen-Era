@@ -150,6 +150,7 @@ export const HostGameScreen: React.FC<HostGameScreenProps> = ({ game, quiz, setC
       history.unshift({
         historyId: `hist_${Date.now()}`,
         gameId: activeGame.gameId,
+        folderId: currentQuiz.folderId,
         quizTitle: currentQuiz.title,
         hostName: 'Host',
         totalParticipants: participants.length,

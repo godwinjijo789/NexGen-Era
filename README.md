@@ -14,7 +14,7 @@ NexGen Era is a React/Vite quiz application backed by Supabase Authentication, P
 
 ## Supabase Setup
 
-Run `supabase/migrations/20260928000000_initial_schema.sql` in the Supabase SQL Editor. In Authentication settings, enable Email/Password and Anonymous sign-ins. For the first administrator, promote the account after registration with `UPDATE public.profiles SET role = 'admin' WHERE email = 'admin@example.com';` in the SQL Editor.
+Run `supabase/migrations/20260928000000_initial_schema.sql` and then `supabase/migrations/20260928000001_quiz_folders.sql` in the Supabase SQL Editor, in that order. The second migration adds quiz folders, folder membership, and folder score settings. In Authentication settings, enable Email/Password and Anonymous sign-ins. For the first administrator, promote the account after registration with `UPDATE public.profiles SET role = 'admin' WHERE email = 'admin@example.com';` in the SQL Editor.
 
 Set `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` in Vercel for Preview and Production. `VITE_GEMINI_API_KEY` is optional if AI quiz generation is needed. Never use a service-role key in the frontend.
 

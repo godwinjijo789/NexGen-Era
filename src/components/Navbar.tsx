@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { User, PageId, GameSession } from '../types';
 import { StorageDB } from '../services/db';
-import { Zap, Play, BookOpen, Shield, LogOut, Home, History, Sparkles, Settings, Menu, X, PlusCircle } from 'lucide-react';
+import { Zap, BookOpen, Shield, LogOut, Home, History, Settings, Menu, X, PlusCircle } from 'lucide-react';
 
 interface NavbarProps {
   currentUser: User | null;
@@ -101,15 +101,6 @@ export const Navbar: React.FC<NavbarProps> = ({ currentUser, currentPage, setCur
             </button>
           )}
 
-          {(!currentUser || currentUser.role === 'participant') && (
-            <button
-              onClick={() => handleNav('join_game')}
-              className="px-4 py-2 rounded-xl text-sm font-bold transition-all flex items-center space-x-2 bg-gradient-to-r from-emerald-500 to-teal-600 text-white shadow-lg shadow-emerald-500/25 hover:scale-105"
-            >
-              <Play className="w-4 h-4 fill-current" />
-              <span>Join Game PIN</span>
-            </button>
-          )}
         </nav>
 
         {/* Desktop Profile & Actions */}
@@ -158,28 +149,12 @@ export const Navbar: React.FC<NavbarProps> = ({ currentUser, currentPage, setCur
               >
                 Sign In
               </button>
-              <button
-                onClick={() => handleNav('join_game')}
-                className="px-4 py-2 rounded-xl text-sm font-extrabold bg-gradient-to-r from-emerald-500 to-teal-600 hover:opacity-95 text-white shadow-lg shadow-emerald-500/25 transition-all hover:scale-105"
-              >
-                Get Started
-              </button>
             </div>
           )}
         </div>
 
         {/* Mobile Header Right Controls: Quick Action & Hamburger Menu */}
         <div className="flex items-center space-x-2 md:hidden">
-          {(!currentUser || currentUser.role === 'participant') && (
-            <button
-              onClick={() => handleNav('join_game')}
-              className="px-3 py-1.5 rounded-xl text-xs font-bold bg-gradient-to-r from-emerald-500 to-teal-600 text-white shadow-md shadow-emerald-500/20 flex items-center space-x-1"
-            >
-              <Play className="w-3.5 h-3.5 fill-current" />
-              <span>PIN</span>
-            </button>
-          )}
-
           <button
             onClick={() => setMobileMenuOpen(prev => !prev)}
             aria-label="Toggle navigation menu"
@@ -289,15 +264,6 @@ export const Navbar: React.FC<NavbarProps> = ({ currentUser, currentPage, setCur
               </button>
             )}
 
-            <button
-              onClick={() => handleNav('join_game')}
-              className={`w-full px-4 py-3 rounded-xl text-sm font-bold transition-all flex items-center space-x-3 ${
-                currentPage === 'join_game' ? 'bg-emerald-600 text-white' : 'text-emerald-400 bg-emerald-500/10 hover:bg-emerald-500/20'
-              }`}
-            >
-              <Play className="w-4 h-4 fill-current" />
-              <span>Join Game with PIN</span>
-            </button>
           </div>
 
           {!currentUser && (
@@ -307,12 +273,6 @@ export const Navbar: React.FC<NavbarProps> = ({ currentUser, currentPage, setCur
                 className="w-full py-3 rounded-xl text-sm font-bold text-slate-300 hover:text-white bg-slate-900 hover:bg-slate-800 border border-slate-800 transition-colors text-center"
               >
                 Sign In
-              </button>
-              <button
-                onClick={() => handleNav('join_game')}
-                className="w-full py-3 rounded-xl text-sm font-extrabold bg-gradient-to-r from-emerald-500 to-teal-600 hover:opacity-95 text-white shadow-lg shadow-emerald-500/25 transition-all text-center"
-              >
-                Get Started
               </button>
             </div>
           )}

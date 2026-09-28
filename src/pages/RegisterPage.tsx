@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
-import { PageId, User, UserRole } from '../types';
+import { PageId, User } from '../types';
 import { StorageDB } from '../services/db';
 import { getSupabaseErrorMessage, supabase } from '../lib/supabase';
-import { Zap, Lock, Mail, User as UserIcon, ArrowRight, BookOpen, Play } from 'lucide-react';
+import { Zap, Lock, Mail, User as UserIcon, ArrowRight, BookOpen } from 'lucide-react';
 
 interface RegisterPageProps {
   setCurrentPage: (page: PageId) => void;
@@ -13,8 +13,7 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({ setCurrentPage, onLo
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [role, setRole] = useState<UserRole>('participant');
-  const [participantId, setParticipantId] = useState('');
+  const role = 'host' as const;
   const [error, setError] = useState('');
 
   const handleRegister = async (e: React.FormEvent) => {
@@ -29,7 +28,7 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({ setCurrentPage, onLo
         options: { data: {
           name: name.trim(),
           role,
-          participantId: role === 'participant' ? (participantId || `PART-${Math.floor(1000 + Math.random() * 9000)}`) : null,
+          participantId: null,
           avatar,
         } },
       });
@@ -49,8 +48,7 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({ setCurrentPage, onLo
       await StorageDB.initialize(newUser);
       onLogin(newUser);
 
-      if (role === 'host') setCurrentPage('host_dashboard');
-      else setCurrentPage('join_game');
+      setCurrentPage('host_dashboard');
     } catch (error) {
       setError(getSupabaseErrorMessage(error, 'Unable to create account. Please try again.'));
     }
@@ -66,7 +64,7 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({ setCurrentPage, onLo
             <Zap className="w-6 h-6 sm:w-7 sm:h-7 text-white" />
           </div>
           <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight">Create NexGen Era Account</h2>
-          <p className="text-xs sm:text-sm text-slate-400 mt-1">Join the next-generation live gaming platform</p>
+          <p className="text-xs sm:text-sm text-slate-400 mt-1">Create an Event Co-Ordinator account</p>
         </div>
 
         {error && (
@@ -76,31 +74,9 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({ setCurrentPage, onLo
         )}
 
         <form onSubmit={handleRegister} className="space-y-4">
-          <div>
-            <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">I am joining as a...</label>
-            <div className="grid grid-cols-2 gap-2.5 sm:gap-3">
-              <button
-                type="button"
-                onClick={() => setRole('host')}
-                className={`p-3 rounded-xl sm:rounded-2xl border text-xs sm:text-sm font-bold flex items-center justify-center space-x-2 transition-all ${
-                  role === 'host' ? 'bg-indigo-600 border-indigo-500 text-white shadow-lg shadow-indigo-600/30' : 'bg-slate-950/60 border-slate-800 text-slate-400 hover:text-white'
-                }`}
-              >
-                <BookOpen className="w-4 h-4" />
-                <span>Event Co-Ordinator / Host</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setRole('participant')}
-                className={`p-3 rounded-xl sm:rounded-2xl border text-xs sm:text-sm font-bold flex items-center justify-center space-x-2 transition-all ${
-                  role === 'participant' ? 'bg-indigo-600 border-indigo-500 text-white shadow-lg shadow-indigo-600/30' : 'bg-slate-950/60 border-slate-800 text-slate-400 hover:text-white'
-                }`}
-              >
-                <Play className="w-4 h-4" />
-                <span>Participant</span>
-              </button>
-            </div>
+          <div className="flex items-center gap-2 rounded-xl border border-indigo-500/30 bg-indigo-500/10 p-3 text-xs font-bold text-indigo-300">
+            <BookOpen className="w-4 h-4" />
+            <span>Event Co-Ordinator / Host account</span>
           </div>
 
           <div>
@@ -133,18 +109,6 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({ setCurrentPage, onLo
             </div>
           </div>
 
-          {role === 'participant' && (
-            <div>
-              <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1.5">Participant ID (Optional)</label>
-              <input
-                type="text"
-                value={participantId}
-                onChange={e => setParticipantId(e.target.value)}
-                placeholder="PART-2026"
-                className="w-full bg-slate-950/80 border border-slate-800 rounded-xl sm:rounded-2xl px-4 py-2.5 sm:py-3 text-white placeholder:text-slate-600 focus:outline-none focus:border-indigo-500 font-medium text-xs sm:text-sm"
-              />
-            </div>
-          )}
 
           <div>
             <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1.5">Password</label>
