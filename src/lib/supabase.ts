@@ -26,6 +26,9 @@ export const getSupabaseErrorMessage = (error: unknown, fallback: string): strin
   if (message.includes('fetch') || message.includes('network')) {
     return 'Could not connect to Supabase. Check your connection and try again.';
   }
+  if (message.includes('anonymous') && (message.includes('disabled') || message.includes('not enabled'))) {
+    return 'Guest joining is not enabled for this Supabase project. Enable Anonymous Sign-Ins under Authentication settings, then try again.';
+  }
   if (message.includes('duplicate') || message.includes('already')) {
     return 'That value is already in use. Please choose another.';
   }
