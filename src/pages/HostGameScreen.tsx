@@ -60,7 +60,7 @@ export const HostGameScreen: React.FC<HostGameScreenProps> = ({ game, quiz, setC
 
   const currentQuiz = activeGame?.quiz || quiz || StorageDB.getQuizzes().find(q => q.quizId === activeGame?.quizId);
   const currentQuestion = currentQuiz?.questions[activeGame?.currentQuestionIndex || 0];
-  const topParticipants = [...participants].sort((a, b) => b.score - a.score).slice(0, 10);
+  const topParticipants = [...participants].sort((a, b) => b.score - a.score);
 
   const persistGame = async (updatedGame: GameSession | null) => {
     setActionError('');
@@ -365,11 +365,11 @@ export const HostGameScreen: React.FC<HostGameScreenProps> = ({ game, quiz, setC
               <div className="flex items-center justify-between mb-2 sm:mb-3">
                 <h3 className="text-sm sm:text-base font-extrabold text-white">Live Leaderboard</h3>
                 <span className="px-2 py-1 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-300 text-[10px] font-bold uppercase tracking-wider">
-                  Top 10
+                  {participants.length} players
                 </span>
               </div>
 
-              <div className="grid grid-cols-2 xl:grid-cols-1 gap-1.5 sm:gap-2">
+              <div className="grid max-h-80 grid-cols-2 gap-1.5 overflow-y-auto sm:gap-2 xl:grid-cols-1">
                 {topParticipants.length === 0 ? (
                   <div className="text-xs text-slate-500 italic py-6 text-center">No score yet</div>
                 ) : (
@@ -384,7 +384,7 @@ export const HostGameScreen: React.FC<HostGameScreenProps> = ({ game, quiz, setC
                           <div className="text-[9px] text-slate-400">{p.correctAnswers} correct</div>
                         </div>
                       </div>
-                      <div className="text-xs font-black text-indigo-400 ml-1">{p.score}</div>
+                      <div className="ml-1 text-xs font-black text-indigo-400">{p.score} pts</div>
                     </div>
                   ))
                 )}
