@@ -410,6 +410,56 @@ export const StorageDB = {
       return applySnapshot(gameResult.data as Row, participantResult.data as Row[]);
     }
 
+    if (result.error && activeGame?.gameId === gameId && currentUser?.userId === activeGame.hostId) {
+      await loadGame(gameId);
+      const game = activeGame;
+      const question = game?.quiz?.questions[game.currentQuestionIndex];
+      if (game?.status === 'question_active' && question) {
+        const questionResponses = responses.filter(response => response.gameId === gameId && response.questionId === question.id);
+        const updatedParticipants = participants.map(participant => {
+          const response = questionResponses.find(item => item.participantId === participant.participantId);
+          if (!response || !response.isCorrect) return participant;
+          const difficultyMultiplier = question.difficulty === 'Hard' ? 2 : question.difficulty === 'Medium' ? 1.5 : 1;
+          const speedRatio = Math.max(0, (question.timerSeconds - response.responseTime) / question.timerSeconds);
+          const earnedPoints = Math.round((1000 + speedRatio * 500) * difficultyMultiplier);
+          return {
+            ...participant,
+            score: participant.score + earnedPoints,
+            correctAnswers: participant.correctAnswers + 1,
+          };
+        }).sort((first, second) => second.score - first.score);
+
+        updatedParticipants.forEach((participant, index) => { participant.rank = index + 1; });
+        const scoreUpdateErrors: string[] = [];
+        for (const participant of updatedParticipants) {
+          const participantUpdate = await supabase.from('game_participants').update({
+            score: participant.score,
+            correct_answers: participant.correctAnswers,
+            rank: participant.rank,
+          }).eq('participant_id', participant.participantId).eq('game_id', gameId);
+          if (participantUpdate.error) scoreUpdateErrors.push(participantUpdate.error.message);
+        }
+
+        const gameUpdate = await supabase.from('games').update({ status: 'question_result' }).eq('game_id', gameId).eq('status', 'question_active').select('*').single();
+        const revealedGame = requireSuccess(gameUpdate) as Row;
+        if (scoreUpdateErrors.length) {
+          console.warn('Some participant scores could not be persisted during reveal:', scoreUpdateErrors);
+        }
+        return applySnapshot(revealedGame, updatedParticipants.map(participant => ({
+          participant_id: participant.participantId,
+          game_id: participant.gameId,
+          nickname: participant.nickname,
+          student_id: participant.studentId || null,
+          avatar: participant.avatar || null,
+          score: participant.score,
+          correct_answers: participant.correctAnswers,
+          rank: participant.rank,
+          joined_at: participant.joinedAt,
+          is_online: participant.isOnline,
+        })));
+      }
+    }
+
     if (result.error) throw new Error(result.error.message);
     throw new Error('The results response was incomplete. Please retry.');
   },
