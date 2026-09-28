@@ -61,6 +61,7 @@ export const HostGameScreen: React.FC<HostGameScreenProps> = ({ game, quiz, setC
   const currentQuiz = activeGame?.quiz || quiz || StorageDB.getQuizzes().find(q => q.quizId === activeGame?.quizId);
   const currentQuestion = currentQuiz?.questions[activeGame?.currentQuestionIndex || 0];
   const topParticipants = [...participants].sort((a, b) => b.score - a.score);
+  const topTenParticipants = topParticipants.slice(0, 10);
 
   const persistGame = async (updatedGame: GameSession | null) => {
     setActionError('');
@@ -401,15 +402,21 @@ export const HostGameScreen: React.FC<HostGameScreenProps> = ({ game, quiz, setC
                 <span>Question Results</span>
               </div>
 
+              <div className="space-y-2">
+                <p className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                  Question {activeGame.currentQuestionIndex + 1}
+                </p>
+                <h2 className="text-lg sm:text-2xl font-extrabold text-white leading-snug">{currentQuestion.text}</h2>
+              </div>
+
               <h3 className="text-lg sm:text-2xl font-bold text-white">Correct Answer:</h3>
               <div className="p-4 sm:p-6 rounded-xl sm:rounded-2xl bg-emerald-600/20 border border-emerald-500/40 text-emerald-300 text-lg sm:text-2xl font-extrabold max-w-xl mx-auto break-words">
                 {currentQuestion.options[currentQuestion.correctAnswer]}
               </div>
 
-              {/* Mini Leaderboard preview */}
-              <div className="space-y-2 sm:space-y-3 pt-2 sm:pt-4 text-left max-w-xl mx-auto">
-                <h4 className="text-[11px] sm:text-xs font-semibold uppercase tracking-wider text-slate-400">Top Participants</h4>
-                {participants.map((p, idx) => (
+              <div className="mx-auto max-h-80 max-w-xl space-y-2 overflow-y-auto pt-2 text-left sm:space-y-3 sm:pt-4">
+                <h4 className="text-[11px] sm:text-xs font-semibold uppercase tracking-wider text-slate-400">Top 10 Teams · Total Points</h4>
+                {topTenParticipants.map((p, idx) => (
                   <div key={p.participantId} className="flex items-center justify-between p-3 sm:p-3.5 rounded-xl bg-slate-950/80 border border-slate-800">
                     <div className="flex items-center space-x-2.5 sm:space-x-3 truncate">
                       <span className={`w-5 h-5 sm:w-6 sm:h-6 rounded-lg font-bold text-xs flex items-center justify-center shrink-0 ${
