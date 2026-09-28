@@ -14,6 +14,7 @@ export const FinalResults: React.FC<FinalResultsProps> = ({ quiz, setCurrentPage
   const participants = StorageDB.getParticipants().sort((a, b) => b.score - a.score);
   const winner = participants.length > 0 ? participants[0] : null;
   const top3 = participants.slice(0, 3);
+  const userRole = StorageDB.getCurrentUser()?.role;
   const { playVictory } = useSound();
 
   useEffect(() => {
@@ -111,26 +112,30 @@ export const FinalResults: React.FC<FinalResultsProps> = ({ quiz, setCurrentPage
 
         {/* Bottom Actions */}
         <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-4">
-          <button
-            onClick={() => {
-              void StorageDB.setActiveGame(null).catch(() => window.alert('Unable to clear this session. Please try again.'));
-              setCurrentPage('host_dashboard');
-            }}
-            className="w-full sm:w-auto px-6 py-3.5 rounded-xl sm:rounded-2xl bg-slate-800 hover:bg-slate-700 text-white font-bold text-sm sm:text-base border border-slate-700 transition-all flex items-center justify-center space-x-2 active:scale-95"
-          >
-            <Home className="w-4 h-4" />
-            <span>Return to Dashboard</span>
-          </button>
-          <button
-            onClick={() => {
-              void StorageDB.setActiveGame(null).catch(() => window.alert('Unable to clear this session. Please try again.'));
-              setCurrentPage('join_game');
-            }}
-            className="w-full sm:w-auto px-6 py-3.5 rounded-xl sm:rounded-2xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-sm sm:text-base shadow-lg shadow-indigo-600/30 transition-all flex items-center justify-center space-x-2 active:scale-95"
-          >
-            <Play className="w-4 h-4 fill-current" />
-            <span>Join Another Game</span>
-          </button>
+          {userRole !== 'participant' && (
+            <button
+              onClick={() => {
+                void StorageDB.setActiveGame(null).catch(() => window.alert('Unable to clear this session. Please try again.'));
+                setCurrentPage('host_dashboard');
+              }}
+              className="w-full sm:w-auto px-6 py-3.5 rounded-xl sm:rounded-2xl bg-slate-800 hover:bg-slate-700 text-white font-bold text-sm sm:text-base border border-slate-700 transition-all flex items-center justify-center space-x-2 active:scale-95"
+            >
+              <Home className="w-4 h-4" />
+              <span>Return to Dashboard</span>
+            </button>
+          )}
+          {userRole !== 'host' && (
+            <button
+              onClick={() => {
+                void StorageDB.setActiveGame(null).catch(() => window.alert('Unable to clear this session. Please try again.'));
+                setCurrentPage('join_game');
+              }}
+              className="w-full sm:w-auto px-6 py-3.5 rounded-xl sm:rounded-2xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-sm sm:text-base shadow-lg shadow-indigo-600/30 transition-all flex items-center justify-center space-x-2 active:scale-95"
+            >
+              <Play className="w-4 h-4 fill-current" />
+              <span>Join Another Game</span>
+            </button>
+          )}
         </div>
       </div>
     </div>
