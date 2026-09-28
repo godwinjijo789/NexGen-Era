@@ -9,7 +9,7 @@ declare
   quiz_questions jsonb;
   question_record jsonb;
   v_question_id text;
-  correct_answer integer;
+  v_correct_answer integer;
   timer_seconds numeric;
   difficulty_multiplier numeric;
   participant_rows jsonb;
@@ -37,12 +37,18 @@ begin
       quiz_questions -> game_record.current_question_index
     );
     v_question_id := question_record ->> 'id';
+    v_correct_answer := nullif(
+      quiz_questions -> game_record.current_question_index ->> 'correctAnswer',
+      ''
+    )::integer;
 
     if v_question_id is null then
       raise exception 'The current question could not be identified';
     end if;
+    if v_correct_answer is null then
+      raise exception 'The correct answer could not be identified in the quiz';
+    end if;
 
-    correct_answer := (question_record ->> 'correctAnswer')::integer;
     timer_seconds := greatest(1, (question_record ->> 'timerSeconds')::numeric);
     difficulty_multiplier := case question_record ->> 'difficulty'
       when 'Hard' then 2
@@ -51,8 +57,8 @@ begin
     end;
 
     update public.game_responses response
-    set is_correct = response.selected_answer = correct_answer,
-        points = case when response.selected_answer = correct_answer then round(
+    set is_correct = coalesce(response.selected_answer = v_correct_answer, false),
+        points = case when response.selected_answer = v_correct_answer then round(
           (1000 + greatest(0, (timer_seconds - response.response_time) / timer_seconds) * 500)
           * difficulty_multiplier
         )::integer else 0 end
