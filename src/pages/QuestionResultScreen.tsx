@@ -60,18 +60,7 @@ export const QuestionResultScreen: React.FC<QuestionResultScreenProps> = ({ part
       }
     }
   }, []);
-  const responseScores = new Map<string, number>();
-  for (const response of responses) {
-    if (response.gameId !== activeGame?.gameId) continue;
-    responseScores.set(
-      response.participantId,
-      (responseScores.get(response.participantId) || 0) + response.points
-    );
-  }
-  const topParticipants = participants
-    .map(p => ({ ...p, score: responseScores.get(p.participantId) ?? p.score }))
-    .sort((first, second) => second.score - first.score || first.joinedAt.localeCompare(second.joinedAt))
-    .map((p, index) => ({ ...p, rank: index + 1 }));
+  const topParticipants = [...participants].sort((first, second) => first.rank - second.rank);
   const currentParticipant = topParticipants.find(p => p.participantId === participant?.participantId);
   const podiumParticipants = [topParticipants[1], topParticipants[0], topParticipants[2]];
 
@@ -99,11 +88,11 @@ export const QuestionResultScreen: React.FC<QuestionResultScreenProps> = ({ part
 
         <div className="grid grid-cols-2 gap-3 sm:gap-4 py-3 sm:py-4 border-y border-slate-800">
           <div>
-            <div className="text-xl sm:text-2xl font-black text-indigo-400">{currentParticipant?.score || 0}</div>
+            <div className="text-xl sm:text-2xl font-black text-indigo-400">{currentParticipant?.score ?? 0}</div>
             <div className="text-[10px] sm:text-xs uppercase tracking-wider text-slate-500 font-bold mt-1">Total Score</div>
           </div>
           <div>
-            <div className="text-xl sm:text-2xl font-black text-amber-400">#{currentParticipant?.rank || '-'}</div>
+            <div className="text-xl sm:text-2xl font-black text-amber-400">#{currentParticipant?.rank ? currentParticipant.rank : '-'}</div>
             <div className="text-[10px] sm:text-xs uppercase tracking-wider text-slate-500 font-bold mt-1">Current Rank</div>
           </div>
         </div>

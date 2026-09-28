@@ -33,6 +33,9 @@ export const getSupabaseErrorMessage = (error: unknown, fallback: string): strin
   if (code === '42501' || message.includes('only the game host')) {
     return 'Only the host account that started this game can reveal its results. Sign in to the original host account.';
   }
+  if (message.includes('question not found') || message.includes('question could not be identified')) {
+    return 'The current quiz question could not be found. Check the quiz data and try again.';
+  }
   if (message.includes('question results cannot be revealed')) {
     return 'The game has already moved to another state. Refresh the host page to synchronize it.';
   }
@@ -45,8 +48,14 @@ export const getSupabaseErrorMessage = (error: unknown, fallback: string): strin
   if (message.includes('duplicate') || message.includes('already')) {
     return 'That value is already in use. Please choose another.';
   }
-  if (message.includes('invalid game pin') || message.includes('game not found')) {
+  if (message.includes('game not found')) {
+    return 'This live game could not be found. Refresh the host page and try again.';
+  }
+  if (message.includes('invalid game pin')) {
     return 'That game PIN is invalid or the game is no longer accepting players.';
+  }
+  if (message.includes('participant not found')) {
+    return 'Your participant session could not be found. Rejoin the game with its PIN.';
   }
   if (message.includes('nickname')) {
     return 'That nickname is already in use in this game.';

@@ -15,31 +15,28 @@ let responses: Response[] = [];
 let history: GameHistoryRecord[] = [];
 let serverClockOffset = 0;
 const listeners = new Set<(event: any) => void>();
-const gameChannels = new Map<string, ReturnType<typeof supabase.channel>>();
+const gameChannels = new Map<string, { channel: ReturnType<typeof supabase.channel>; watchers: number }>();
+let gameLoadSequence = 0;
 
 const emit = (event: any) => listeners.forEach(listener => listener(event));
 
 const getGameChannel = (gameId: string) => {
   const existing = gameChannels.get(gameId);
   if (existing) return existing;
-  const channel = supabase.channel(`game-${gameId}`);
-  gameChannels.set(gameId, channel);
-  return channel;
+  const registration = { channel: supabase.channel(`game-${gameId}`), watchers: 0 };
+  gameChannels.set(gameId, registration);
+  return registration;
 };
 
 const broadcastGameState = (gameId: string, gameRow: Row, participantRows: Array<Row | Participant> = participants, responseRows: Array<Row | Response> = responses) => {
-  const channel = getGameChannel(gameId);
+  const registration = gameChannels.get(gameId);
+  if (!registration?.watchers) return;
   const message = {
     type: 'broadcast',
     event: 'game_state',
     payload: { game: gameRow, participants: participantRows, responses: responseRows },
   } as const;
-  void channel.send(message).then(result => {
-    if (result === 'ok') return;
-    void channel.subscribe(status => {
-      if (status === 'SUBSCRIBED') void channel.send(message);
-    });
-  });
+  void registration.channel.send(message);
 };
 
 export const normalizeGamePin = (value: unknown): string => String(value ?? '').replace(/\D/g, '').slice(0, 6);
@@ -165,6 +162,7 @@ const syncServerClock = async () => {
 const synchronizedNow = () => Date.now() + serverClockOffset;
 
 async function loadGame(gameId: string) {
+  const requestSequence = ++gameLoadSequence;
   const gameRow = requireSuccess(await supabase.from('games').select('*').eq('game_id', gameId).single()) as Row;
   let quiz = gameRow.quiz_snapshot as Quiz;
   if (gameRow.host_id === currentUser?.userId) {
@@ -178,7 +176,11 @@ async function loadGame(gameId: string) {
       ? supabase.from('game_responses').select('*').eq('game_id', gameId).order('submitted_at')
       : supabase.rpc('get_game_responses', { p_game_id: gameId }),
   ]);
+  if (requestSequence !== gameLoadSequence) return;
   participants = (requireSuccess(participantResult) as Row[]).map(toParticipant);
+  if (currentParticipant?.gameId === gameId) {
+    currentParticipant = participants.find(item => item.participantId === currentParticipant?.participantId) || currentParticipant;
+  }
   responses = (responseResult.error ? [] : responseResult.data as Row[]).map(toResponse);
   activeGame = toGame(gameRow, quiz);
   emit({ type: 'GAME_UPDATED', game: activeGame });
@@ -195,6 +197,7 @@ export const StorageDB = {
   getCurrentParticipant: () => currentParticipant,
   getParticipants: () => participants,
   getResponses: () => responses,
+
   getHistory: () => history,
   getSynchronizedNow: () => synchronizedNow(),
 
@@ -406,87 +409,29 @@ export const StorageDB = {
   },
 
   async revealGameResults(gameId: string) {
-    let result = await supabase.rpc('reveal_game_results', { p_game_id: gameId });
-    if (result.error) {
-      await new Promise(resolve => window.setTimeout(resolve, 250));
-      result = await supabase.rpc('reveal_game_results', { p_game_id: gameId });
-    }
+    const result = await supabase.rpc('reveal_game_results', { p_game_id: gameId });
     const applySnapshot = (gameRow: Row, participantRows: Row[]) => {
       activeGame = toGame(gameRow, activeGame?.quiz);
       participants = participantRows.map(toParticipant);
+      if (currentParticipant?.gameId === gameId) {
+        currentParticipant = participants.find(item => item.participantId === currentParticipant?.participantId) || currentParticipant;
+      }
       broadcastGameState(gameId, gameRow, participantRows, responses);
       emit({ type: 'GAME_UPDATED', game: activeGame });
       emit({ type: 'PARTICIPANTS_UPDATED', participants });
       return { game: activeGame, participants };
     };
 
-    if (!result.error) {
-      const payload = result.data as { game?: Row; participants?: Row[] } | null;
-      if (payload?.game && Array.isArray(payload.participants)) {
-        return applySnapshot(payload.game, payload.participants);
-      }
+    if (result.error) {
+      console.error('reveal_game_results error:', result.error);
+      throw new Error(result.error.message);
     }
 
-    // The RPC may have committed successfully even if its response could not be decoded or delivered.
-    const [gameResult, participantResult] = await Promise.all([
-      supabase.from('games').select('*').eq('game_id', gameId).maybeSingle(),
-      supabase.from('game_participants').select('*').eq('game_id', gameId).order('rank'),
-    ]);
-    if (!gameResult.error && gameResult.data?.status === 'question_result' && !participantResult.error) {
-      return applySnapshot(gameResult.data as Row, participantResult.data as Row[]);
+    const payload = result.data as { game?: Row; participants?: Row[] } | null;
+    if (payload?.game && Array.isArray(payload.participants)) {
+      return applySnapshot(payload.game, payload.participants);
     }
 
-    if (result.error && activeGame?.gameId === gameId && currentUser?.userId === activeGame.hostId) {
-      await loadGame(gameId);
-      const game = activeGame;
-      const question = game?.quiz?.questions[game.currentQuestionIndex];
-      if (game?.status === 'question_active' && question) {
-        const questionResponses = responses.filter(response => response.gameId === gameId && response.questionId === question.id);
-        const updatedParticipants = participants.map(participant => {
-          const response = questionResponses.find(item => item.participantId === participant.participantId);
-          if (!response || !response.isCorrect) return participant;
-          const difficultyMultiplier = question.difficulty === 'Hard' ? 2 : question.difficulty === 'Medium' ? 1.5 : 1;
-          const speedRatio = Math.max(0, (question.timerSeconds - response.responseTime) / question.timerSeconds);
-          const earnedPoints = Math.round((1000 + speedRatio * 500) * difficultyMultiplier);
-          return {
-            ...participant,
-            score: participant.score + earnedPoints,
-            correctAnswers: participant.correctAnswers + 1,
-          };
-        }).sort((first, second) => second.score - first.score);
-
-        updatedParticipants.forEach((participant, index) => { participant.rank = index + 1; });
-        const scoreUpdateErrors: string[] = [];
-        for (const participant of updatedParticipants) {
-          const participantUpdate = await supabase.from('game_participants').update({
-            score: participant.score,
-            correct_answers: participant.correctAnswers,
-            rank: participant.rank,
-          }).eq('participant_id', participant.participantId).eq('game_id', gameId);
-          if (participantUpdate.error) scoreUpdateErrors.push(participantUpdate.error.message);
-        }
-
-        const gameUpdate = await supabase.from('games').update({ status: 'question_result' }).eq('game_id', gameId).eq('status', 'question_active').select('*').single();
-        const revealedGame = requireSuccess(gameUpdate) as Row;
-        if (scoreUpdateErrors.length) {
-          console.warn('Some participant scores could not be persisted during reveal:', scoreUpdateErrors);
-        }
-        return applySnapshot(revealedGame, updatedParticipants.map(participant => ({
-          participant_id: participant.participantId,
-          game_id: participant.gameId,
-          nickname: participant.nickname,
-          student_id: participant.studentId || null,
-          avatar: participant.avatar || null,
-          score: participant.score,
-          correct_answers: participant.correctAnswers,
-          rank: participant.rank,
-          joined_at: participant.joinedAt,
-          is_online: participant.isOnline,
-        })));
-      }
-    }
-
-    if (result.error) throw new Error(result.error.message);
     throw new Error('The results response was incomplete. Please retry.');
   },
 
@@ -532,32 +477,74 @@ export const StorageDB = {
   },
 
   watchGame(gameId: string) {
-    const channel = getGameChannel(gameId)
-      .on('broadcast', { event: 'game_state' }, ({ payload }) => {
-        if (!payload?.game) return;
-        activeGame = toGame(payload.game, activeGame?.quiz);
-        if (Array.isArray(payload.participants)) {
-          participants = (payload.participants as Row[]).map(row => row.participant_id ? toParticipant(row) : row as Participant);
-        }
-        if (Array.isArray(payload.responses)) responses = payload.responses as Response[];
-        emit({ type: 'GAME_UPDATED', game: activeGame });
-        emit({ type: 'PARTICIPANTS_UPDATED', participants });
-        emit({ type: 'RESPONSES_UPDATED', responses });
-      })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'games', filter: `game_id=eq.${gameId}` }, () => void this.refreshSharedState())
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'game_participants', filter: `game_id=eq.${gameId}` }, () => void this.refreshSharedState())
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'game_responses', filter: `game_id=eq.${gameId}` }, () => void this.refreshSharedState())
+    const registration = getGameChannel(gameId);
+    registration.watchers += 1;
+    if (registration.watchers === 1) {
+      const channel = registration.channel;
+      const refresh = () => {
+        void this.refreshSharedState().catch(error => {
+          console.error('[Realtime] Unable to refresh game state:', { gameId, error });
+          emit({ type: 'REALTIME_ERROR' });
+          if (typeof window !== 'undefined') window.dispatchEvent(new Event('supabase_realtime_error'));
+        });
+      };
+
+      channel
+        .on('broadcast', { event: 'game_state' }, ({ payload }) => {
+          if (!payload?.game) return;
+          activeGame = toGame(payload.game, activeGame?.quiz);
+          if (Array.isArray(payload.participants)) {
+            participants = (payload.participants as Row[]).map(row => row.participant_id ? toParticipant(row) : row as Participant);
+            if (currentParticipant?.gameId === gameId) {
+              currentParticipant = participants.find(item => item.participantId === currentParticipant?.participantId) || currentParticipant;
+            }
+          }
+          if (Array.isArray(payload.responses)) responses = payload.responses as Response[];
+          emit({ type: 'GAME_UPDATED', game: activeGame });
+          emit({ type: 'PARTICIPANTS_UPDATED', participants });
+          emit({ type: 'RESPONSES_UPDATED', responses });
+        })
+        .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'games', filter: `game_id=eq.${gameId}` }, payload => {
+          refresh();
+        })
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'game_participants', filter: `game_id=eq.${gameId}` }, payload => {
+          const row = (payload.eventType === 'DELETE' ? payload.old : payload.new) as Row;
+          if (!row?.participant_id) return;
+          if (payload.eventType === 'DELETE') {
+            participants = participants.filter(item => item.participantId !== row.participant_id);
+          } else {
+            const updatedParticipant = toParticipant(row);
+            const exists = participants.some(item => item.participantId === updatedParticipant.participantId);
+            participants = exists
+              ? participants.map(item => item.participantId === updatedParticipant.participantId ? updatedParticipant : item)
+              : [...participants, updatedParticipant];
+            if (currentParticipant?.participantId === updatedParticipant.participantId) {
+              currentParticipant = updatedParticipant;
+            }
+          }
+          emit({ type: 'PARTICIPANTS_UPDATED', participants });
+        })
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'game_responses', filter: `game_id=eq.${gameId}` }, refresh)
       .subscribe(status => {
         if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+          console.error('[Realtime] Game subscription error:', { gameId, status });
           emit({ type: 'REALTIME_ERROR' });
           if (typeof window !== 'undefined') window.dispatchEvent(new Event('supabase_realtime_error'));
         } else if (status === 'SUBSCRIBED' && typeof window !== 'undefined') {
           window.dispatchEvent(new Event('supabase_realtime_restored'));
         }
       });
+    }
+
+    let stopped = false;
     return () => {
-      gameChannels.delete(gameId);
-      void supabase.removeChannel(channel);
+      if (stopped) return;
+      stopped = true;
+      registration.watchers -= 1;
+      if (registration.watchers === 0 && gameChannels.get(gameId) === registration) {
+        gameChannels.delete(gameId);
+        void supabase.removeChannel(registration.channel);
+      }
     };
   },
 };

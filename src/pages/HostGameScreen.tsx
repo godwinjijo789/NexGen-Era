@@ -19,6 +19,7 @@ export const HostGameScreen: React.FC<HostGameScreenProps> = ({ game, quiz, setC
   const [timeLeft, setTimeLeft] = useState<number>(20);
   const [joinLink, setJoinLink] = useState<string>('');
   const [actionError, setActionError] = useState('');
+  const [isRevealing, setIsRevealing] = useState(false);
   const resultsInProgress = useRef(false);
 
   useEffect(() => {
@@ -124,6 +125,7 @@ export const HostGameScreen: React.FC<HostGameScreenProps> = ({ game, quiz, setC
   const handleShowResults = async () => {
     if (activeGame.status !== 'question_active' || resultsInProgress.current) return;
     resultsInProgress.current = true;
+    setIsRevealing(true);
     try {
       const result = await StorageDB.revealGameResults(activeGame.gameId);
       setActiveGame(result.game);
@@ -131,8 +133,11 @@ export const HostGameScreen: React.FC<HostGameScreenProps> = ({ game, quiz, setC
       setResponses(StorageDB.getResponses());
     } catch (error) {
       resultsInProgress.current = false;
-      console.error('Unable to reveal game results:', error);
-      setActionError(getSupabaseErrorMessage(error, 'Unable to reveal results. Please retry.'));
+      console.error('reveal_game_results error:', error);
+      const fallback = error instanceof Error ? error.message : 'Unable to reveal results. Please retry.';
+      setActionError(getSupabaseErrorMessage(error, fallback));
+    } finally {
+      setIsRevealing(false);
     }
   };
 
@@ -355,10 +360,11 @@ export const HostGameScreen: React.FC<HostGameScreenProps> = ({ game, quiz, setC
               </div>
 
               <button
+                disabled={isRevealing}
                 onClick={handleShowResults}
-                className="w-full sm:w-auto px-5 sm:px-7 py-2.5 rounded-xl sm:rounded-2xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs sm:text-sm shadow-lg shadow-indigo-600/30 transition-all active:scale-98"
+                className="w-full sm:w-auto px-5 sm:px-7 py-2.5 rounded-xl sm:rounded-2xl bg-indigo-600 hover:bg-indigo-500 disabled:opacity-60 text-white font-bold text-xs sm:text-sm shadow-lg shadow-indigo-600/30 transition-all active:scale-98"
               >
-                Skip Timer & Show Results
+                {isRevealing ? 'Revealing Results...' : 'Skip Timer & Show Results'}
               </button>
             </div>
 
