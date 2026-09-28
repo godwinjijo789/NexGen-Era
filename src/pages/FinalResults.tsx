@@ -8,13 +8,14 @@ import { Trophy, Home, Play } from 'lucide-react';
 interface FinalResultsProps {
   quiz: Quiz | null;
   setCurrentPage: (page: PageId) => void;
+  isHost: boolean;
+  isParticipant: boolean;
 }
 
-export const FinalResults: React.FC<FinalResultsProps> = ({ quiz, setCurrentPage }) => {
+export const FinalResults: React.FC<FinalResultsProps> = ({ quiz, setCurrentPage, isHost, isParticipant }) => {
   const participants = StorageDB.getParticipants().sort((a, b) => b.score - a.score);
   const winner = participants.length > 0 ? participants[0] : null;
   const top3 = participants.slice(0, 3);
-  const userRole = StorageDB.getCurrentUser()?.role;
   const { playVictory } = useSound();
 
   useEffect(() => {
@@ -112,7 +113,7 @@ export const FinalResults: React.FC<FinalResultsProps> = ({ quiz, setCurrentPage
 
         {/* Bottom Actions */}
         <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-4">
-          {userRole !== 'participant' && (
+          {isHost && (
             <button
               onClick={() => {
                 void StorageDB.setActiveGame(null).catch(() => window.alert('Unable to clear this session. Please try again.'));
@@ -124,7 +125,7 @@ export const FinalResults: React.FC<FinalResultsProps> = ({ quiz, setCurrentPage
               <span>Return to Dashboard</span>
             </button>
           )}
-          {userRole !== 'host' && (
+          {isParticipant && (
             <button
               onClick={() => {
                 void StorageDB.setActiveGame(null).catch(() => window.alert('Unable to clear this session. Please try again.'));

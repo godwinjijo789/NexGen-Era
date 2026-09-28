@@ -220,6 +220,8 @@ export default function App() {
           <FinalResults
             quiz={selectedQuiz}
             setCurrentPage={setCurrentPage}
+            isHost={currentUser?.role === 'host'}
+            isParticipant={currentParticipant !== null}
           />
         )}
 
