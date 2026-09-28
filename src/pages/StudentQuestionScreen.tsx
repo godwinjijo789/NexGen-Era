@@ -66,9 +66,9 @@ export const StudentQuestionScreen: React.FC<StudentQuestionScreenProps> = ({ pa
   // Countdown timer for participant view
   useEffect(() => {
     if (currentQuestion && activeGame?.status === 'question_active') {
-      const startedAt = activeGame.questionStartTime || Date.now();
+      const startedAt = activeGame.questionStartTime || StorageDB.getSynchronizedNow();
       const updateTimeLeft = () => {
-        const elapsedSeconds = Math.floor((Date.now() - startedAt) / 1000);
+        const elapsedSeconds = Math.floor((StorageDB.getSynchronizedNow() - startedAt) / 1000);
         setTimeLeft(Math.max(0, currentQuestion.timerSeconds - elapsedSeconds));
       };
 

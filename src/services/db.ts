@@ -13,6 +13,7 @@ let currentParticipant: Participant | null = null;
 let participants: Participant[] = [];
 let responses: Response[] = [];
 let history: GameHistoryRecord[] = [];
+let serverClockOffset = 0;
 const listeners = new Set<(event: any) => void>();
 
 const emit = (event: any) => listeners.forEach(listener => listener(event));
@@ -128,6 +129,17 @@ const requireSuccess = <T,>(result: { data: T; error: { message: string } | null
   return result.data;
 };
 
+const syncServerClock = async () => {
+  const requestStartedAt = Date.now();
+  const result = await supabase.rpc('get_server_time');
+  const serverTime = requireSuccess(result) as string;
+  const requestFinishedAt = Date.now();
+  const midpoint = requestStartedAt + (requestFinishedAt - requestStartedAt) / 2;
+  serverClockOffset = new Date(serverTime).getTime() - midpoint;
+};
+
+const synchronizedNow = () => Date.now() + serverClockOffset;
+
 async function loadGame(gameId: string) {
   const gameRow = requireSuccess(await supabase.from('games').select('*').eq('game_id', gameId).single()) as Row;
   let quiz = gameRow.quiz_snapshot as Quiz;
@@ -160,6 +172,7 @@ export const StorageDB = {
   getParticipants: () => participants,
   getResponses: () => responses,
   getHistory: () => history,
+  getSynchronizedNow: () => synchronizedNow(),
 
   async getProfile(userId: string) {
     const result = await supabase.from('profiles').select('*').eq('id', userId).single();
@@ -196,6 +209,12 @@ export const StorageDB = {
       responses = [];
       emit({ type: 'RESET' });
       return;
+    }
+
+    try {
+      await syncServerClock();
+    } catch {
+      serverClockOffset = 0;
     }
 
     const [quizResult, folderResult, historyResult] = await Promise.all([
@@ -316,6 +335,12 @@ export const StorageDB = {
       }
     }
 
+    try {
+      await syncServerClock();
+    } catch {
+      serverClockOffset = 0;
+    }
+
     const result = await supabase.rpc('join_game', {
       p_game_pin: normalizeGamePin(gamePin),
       p_nickname: nickname.trim(),
@@ -344,7 +369,9 @@ export const StorageDB = {
     const update = {
       status: game.status,
       current_question_index: game.currentQuestionIndex,
-      question_start_time: game.questionStartTime ? new Date(game.questionStartTime).toISOString() : null,
+      question_start_time: game.status === 'question_active'
+        ? new Date(synchronizedNow()).toISOString()
+        : game.questionStartTime ? new Date(game.questionStartTime).toISOString() : null,
       ended_at: game.endedAt || null,
     };
     const result = await supabase.from('games').update(update).eq('game_id', game.gameId).select('*').single();
@@ -354,7 +381,11 @@ export const StorageDB = {
   },
 
   async revealGameResults(gameId: string) {
-    const result = await supabase.rpc('reveal_game_results', { p_game_id: gameId });
+    let result = await supabase.rpc('reveal_game_results', { p_game_id: gameId });
+    if (result.error) {
+      await new Promise(resolve => window.setTimeout(resolve, 250));
+      result = await supabase.rpc('reveal_game_results', { p_game_id: gameId });
+    }
     const applySnapshot = (gameRow: Row, participantRows: Row[]) => {
       activeGame = toGame(gameRow, activeGame?.quiz);
       participants = participantRows.map(toParticipant);

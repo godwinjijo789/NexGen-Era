@@ -74,7 +74,7 @@ export const HostGameScreen: React.FC<HostGameScreenProps> = ({ game, quiz, setC
   // Use the shared start timestamp so the host timer cannot drift by interval length.
   useEffect(() => {
     if (activeGame?.status === 'question_active' && currentQuestion) {
-      const deadline = (activeGame.questionStartTime || Date.now()) + currentQuestion.timerSeconds * 1000;
+      const deadline = (activeGame.questionStartTime || StorageDB.getSynchronizedNow()) + currentQuestion.timerSeconds * 1000;
       const updateTimeLeft = () => {
         const remaining = Math.max(0, deadline - Date.now());
         setTimeLeft(Math.ceil(remaining / 1000));
@@ -113,7 +113,7 @@ export const HostGameScreen: React.FC<HostGameScreenProps> = ({ game, quiz, setC
       ...activeGame,
       status: 'question_active',
       currentQuestionIndex: 0,
-      questionStartTime: Date.now(),
+      questionStartTime: StorageDB.getSynchronizedNow(),
       quiz: currentQuiz || activeGame.quiz || quiz || null
     };
     void persistGame(updated);
@@ -170,7 +170,7 @@ export const HostGameScreen: React.FC<HostGameScreenProps> = ({ game, quiz, setC
         ...activeGame,
         status: 'question_active',
         currentQuestionIndex: nextIdx,
-        questionStartTime: Date.now(),
+        questionStartTime: StorageDB.getSynchronizedNow(),
         quiz: currentQuiz || activeGame.quiz || quiz || null
       };
       void persistGame(updatedGame);
