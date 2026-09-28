@@ -60,8 +60,19 @@ export const QuestionResultScreen: React.FC<QuestionResultScreenProps> = ({ part
       }
     }
   }, []);
-  const currentParticipant = participants.find(p => p.participantId === participant?.participantId);
-  const topParticipants = [...participants].sort((first, second) => second.score - first.score);
+  const responseScores = new Map<string, number>();
+  for (const response of responses) {
+    if (response.gameId !== activeGame?.gameId) continue;
+    responseScores.set(
+      response.participantId,
+      (responseScores.get(response.participantId) || 0) + response.points
+    );
+  }
+  const topParticipants = participants
+    .map(p => ({ ...p, score: responseScores.get(p.participantId) ?? p.score }))
+    .sort((first, second) => second.score - first.score || first.joinedAt.localeCompare(second.joinedAt))
+    .map((p, index) => ({ ...p, rank: index + 1 }));
+  const currentParticipant = topParticipants.find(p => p.participantId === participant?.participantId);
 
   return (
     <div className="min-h-screen bg-slate-950 text-white flex items-center justify-center px-3.5 sm:px-4 py-8 sm:py-12">
