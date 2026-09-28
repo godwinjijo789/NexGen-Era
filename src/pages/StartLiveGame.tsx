@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { PageId, Quiz, GameSession, User } from '../types';
 import { StorageDB, normalizeGamePin } from '../services/db';
+import { getSupabaseErrorMessage } from '../lib/supabase';
 import { Play, ArrowLeft, Zap } from 'lucide-react';
 
 interface StartLiveGameProps {
@@ -12,6 +13,7 @@ interface StartLiveGameProps {
 
 export const StartLiveGame: React.FC<StartLiveGameProps> = ({ quiz, currentUser, setCurrentPage, onGameStarted }) => {
   const [randomizeQuestions, setRandomizeQuestions] = useState(false);
+  const [error, setError] = useState('');
 
   if (!quiz) {
     return (
@@ -26,28 +28,19 @@ export const StartLiveGame: React.FC<StartLiveGameProps> = ({ quiz, currentUser,
     );
   }
 
-  const handleLaunchGame = () => {
+  const handleLaunchGame = async () => {
     const createGamePin = () => {
       const digits = Array.from({ length: 6 }, () => Math.floor(Math.random() * 10).toString()).join('');
       return normalizeGamePin(digits);
     };
 
-    const newGame: GameSession = {
-      gameId: `game_${Date.now()}`,
-      quizId: quiz.quizId,
-      hostId: currentUser?.userId || 'user_host_1',
-      gamePin: createGamePin(),
-      status: 'waiting',
-      currentQuestionIndex: 0,
-      startedAt: new Date().toISOString(),
-      quiz: { ...quiz }
-    };
-
-    StorageDB.setActiveGame(newGame);
-    StorageDB.saveParticipants([]);
-    StorageDB.saveResponses([]);
-    onGameStarted(newGame);
-    setCurrentPage('host_game_screen');
+    try {
+      const newGame = await StorageDB.startGame(quiz, createGamePin());
+      onGameStarted(newGame);
+      setCurrentPage('host_game_screen');
+    } catch (launchError) {
+      setError(getSupabaseErrorMessage(launchError, 'Unable to start this game. Please try again.'));
+    }
   };
 
   return (
@@ -74,6 +67,8 @@ export const StartLiveGame: React.FC<StartLiveGameProps> = ({ quiz, currentUser,
           <p className="text-slate-400 text-xs sm:text-sm">You are about to start a live game for:</p>
           <h2 className="text-lg sm:text-xl font-bold text-indigo-300">{quiz.title}</h2>
         </div>
+
+        {error && <p role="alert" className="rounded-xl border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-300">{error}</p>}
 
         <div className="p-4 sm:p-6 rounded-xl sm:rounded-2xl bg-slate-950/60 border border-slate-800 space-y-3 sm:space-y-4">
           <div className="flex items-center justify-between text-xs sm:text-sm">

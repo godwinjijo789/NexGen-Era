@@ -51,6 +51,7 @@ export interface GameSession {
   status: GameStatus;
   currentQuestionIndex: number;
   questionStartTime?: number; // timestamp when current question started
+  updatedAt?: number; // timestamp of the latest shared game-state change
   startedAt: string;
   endedAt?: string;
   quiz?: Quiz;

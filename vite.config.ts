@@ -14,18 +14,6 @@ export default defineConfig(() => {
     server: {
       port: 3000,
       host: '0.0.0.0',
-      proxy: {
-        '/api': {
-          target: 'http://localhost:4000',
-          changeOrigin: true,
-          configure: (proxy) => {
-            proxy.on('error', (err) => {
-              console.warn('[vite-proxy] Backend not ready yet. Start the API server with \'npm run server\' or run \'npm run dev\'.');
-              console.warn(err.message);
-            });
-          },
-        },
-      },
       // HMR is disabled in AI Studio via DISABLE_HMR env var.
       // Do not modify—file watching is disabled to prevent flickering during agent edits.
       hmr: process.env.DISABLE_HMR !== 'true',

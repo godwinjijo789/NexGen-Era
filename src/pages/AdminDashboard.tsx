@@ -14,13 +14,17 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser, set
   const [activeGame, setActiveGame] = useState<GameSession | null>(StorageDB.getActiveGame());
   const [history, setHistory] = useState(StorageDB.getHistory());
 
-  const handleToggleDisableUser = (userId: string) => {
+  const handleToggleDisableUser = async (userId: string) => {
     const updated = users.map(u => u.userId === userId ? { ...u, isDisabled: !u.isDisabled } : u);
-    StorageDB.saveUsers(updated);
-    setUsers(updated);
+    try {
+      await StorageDB.saveUsers(updated);
+      setUsers(updated);
+    } catch {
+      window.alert('Unable to update this account. Please try again.');
+    }
   };
 
-  const handleDeleteQuiz = (quizId: string) => {
+  const handleDeleteQuiz = async (quizId: string) => {
     const target = quizzes.find(q => q.quizId === quizId);
     if (!target) return;
 
@@ -28,8 +32,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser, set
     if (!confirmed) return;
 
     const updated = quizzes.filter(q => q.quizId !== quizId);
-    StorageDB.saveQuizzes(updated);
-    setQuizzes(updated);
+    try {
+      await StorageDB.saveQuizzes(updated);
+      setQuizzes(updated);
+    } catch {
+      window.alert('Unable to delete this quiz. Please try again.');
+    }
   };
 
   return (
@@ -111,7 +119,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ currentUser, set
               <button
                 onClick={() => {
                   if (window.confirm('End this live session?')) {
-                    StorageDB.setActiveGame(null);
+                    void StorageDB.setActiveGame(null).catch(() => window.alert('Unable to end this session. Please try again.'));
                   }
                 }}
                 className="px-4 py-2.5 rounded-xl bg-red-500/20 hover:bg-red-500/30 text-red-300 border border-red-500/30 text-xs font-extrabold transition-all"

@@ -1,260 +1,379 @@
 import { User, Quiz, GameSession, Participant, Response, GameHistoryRecord } from '../types';
 
-const CHANNEL_NAME = 'quizarena_sync_channel';
-const broadcastChannel = typeof window !== 'undefined' ? new BroadcastChannel(CHANNEL_NAME) : null;
-const DEFAULT_API_BASE_URL = 'https://nexgen-era-api.onrender.com';
+import { getSupabaseErrorMessage, supabase } from '../lib/supabase';
 
-export const getApiBaseUrl = () => {
-  const configuredValue = String((import.meta as any).env?.VITE_API_URL || '').trim();
-  const isPlaceholder = configuredValue.includes('your-deployed-backend-url.com') || configuredValue.includes('your-api.example.com');
-  const configured = isPlaceholder || !configuredValue
-    ? (typeof window !== 'undefined' && window.location.hostname === 'localhost' ? window.location.origin : DEFAULT_API_BASE_URL)
-    : configuredValue;
-  return configured.replace(/\/$/, '');
+type Row = Record<string, any>;
+
+let currentUser: User | null = null;
+let users: User[] = [];
+let quizzes: Quiz[] = [];
+let activeGame: GameSession | null = null;
+let currentParticipant: Participant | null = null;
+let participants: Participant[] = [];
+let responses: Response[] = [];
+let history: GameHistoryRecord[] = [];
+const listeners = new Set<(event: any) => void>();
+
+const emit = (event: any) => listeners.forEach(listener => listener(event));
+
+export const normalizeGamePin = (value: unknown): string => String(value ?? '').replace(/\D/g, '').slice(0, 6);
+
+const toUser = (row: Row): User => ({
+  userId: row.id,
+  name: row.name,
+  email: row.email || '',
+  role: row.role,
+  participantId: row.participant_id || undefined,
+  avatar: row.avatar || undefined,
+  createdAt: row.created_at,
+  isDisabled: row.is_disabled,
+});
+
+const toQuiz = (row: Row): Quiz => ({
+  quizId: row.quiz_id,
+  hostId: row.host_id,
+  title: row.title,
+  description: row.description || undefined,
+  stream: row.stream,
+  subject: row.subject || undefined,
+  difficulty: row.difficulty,
+  showQuestionAndAnswersToParticipants: row.show_question_and_answers_to_participants,
+  showMediaToParticipants: row.show_media_to_participants,
+  questions: row.questions || [],
+  createdAt: row.created_at,
+  updatedAt: row.updated_at,
+});
+
+const toParticipant = (row: Row): Participant => ({
+  participantId: row.participant_id,
+  gameId: row.game_id,
+  nickname: row.nickname,
+  studentId: row.student_id || undefined,
+  avatar: row.avatar || undefined,
+  score: row.score,
+  correctAnswers: row.correct_answers,
+  rank: row.rank,
+  joinedAt: row.joined_at,
+  isOnline: row.is_online,
+});
+
+const toResponse = (row: Row): Response => ({
+  responseId: row.response_id,
+  gameId: row.game_id,
+  participantId: row.participant_id,
+  questionId: row.question_id,
+  selectedAnswer: row.selected_answer,
+  isCorrect: row.is_correct,
+  responseTime: Number(row.response_time),
+  points: row.points,
+  submittedAt: row.submitted_at,
+});
+
+const toGame = (row: Row, quiz?: Quiz): GameSession => ({
+  gameId: row.game_id,
+  quizId: row.quiz_id,
+  hostId: row.host_id,
+  gamePin: row.game_pin,
+  status: row.status,
+  currentQuestionIndex: row.current_question_index,
+  questionStartTime: row.question_start_time ? new Date(row.question_start_time).getTime() : undefined,
+  updatedAt: row.updated_at ? new Date(row.updated_at).getTime() : undefined,
+  startedAt: row.started_at,
+  endedAt: row.ended_at || undefined,
+  quiz: quiz || row.quiz_snapshot,
+});
+
+const toHistory = (row: Row): GameHistoryRecord => ({
+  historyId: row.history_id,
+  gameId: row.game_id,
+  quizTitle: row.quiz_title,
+  hostName: row.host_name,
+  totalParticipants: row.total_participants,
+  startedAt: row.started_at,
+  endedAt: row.ended_at,
+  winnerName: row.winner_name || undefined,
+  winnerScore: row.winner_score ?? undefined,
+  participants: row.participants || [],
+});
+
+const quizRow = (quiz: Quiz) => ({
+  quiz_id: quiz.quizId,
+  host_id: quiz.hostId,
+  title: quiz.title,
+  description: quiz.description || null,
+  stream: quiz.stream || quiz.subject || 'General',
+  subject: quiz.subject || null,
+  difficulty: quiz.difficulty,
+  show_question_and_answers_to_participants: quiz.showQuestionAndAnswersToParticipants ?? true,
+  show_media_to_participants: quiz.showMediaToParticipants ?? true,
+  questions: quiz.questions,
+});
+
+const requireSuccess = <T,>(result: { data: T; error: { message: string } | null }): T => {
+  if (result.error) throw new Error(result.error.message);
+  return result.data;
 };
 
-const emitLocalSync = (payload: any) => {
-  if (typeof window === 'undefined') return;
-  broadcastChannel?.postMessage(payload);
-  window.dispatchEvent(new CustomEvent('quizarena_local_sync', { detail: payload }));
-};
-
-const syncToServer = async (endpoint: string, data: unknown, method = 'POST') => {
-  if (typeof window === 'undefined') return;
-
-  try {
-    await fetch(`${getApiBaseUrl()}/api/game/${endpoint}`, {
-      method,
-      headers: { 'Content-Type': 'application/json' },
-      body: data === undefined ? undefined : JSON.stringify(data),
-    });
-  } catch {
-    // Ignore server sync failures so local browser flow still works when no shared backend is available.
+async function loadGame(gameId: string) {
+  const gameRow = requireSuccess(await supabase.from('games').select('*').eq('game_id', gameId).single()) as Row;
+  let quiz = gameRow.quiz_snapshot as Quiz;
+  if (gameRow.host_id === currentUser?.userId) {
+    const result = await supabase.from('quizzes').select('*').eq('quiz_id', gameRow.quiz_id).single();
+    if (!result.error) quiz = toQuiz(result.data as Row);
   }
-};
+  const isHost = gameRow.host_id === currentUser?.userId;
+  const [participantResult, responseResult] = await Promise.all([
+    supabase.from('game_participants').select('*').eq('game_id', gameId).order('joined_at'),
+    isHost
+      ? supabase.from('game_responses').select('*').eq('game_id', gameId).order('submitted_at')
+      : supabase.rpc('get_game_responses', { p_game_id: gameId }),
+  ]);
+  participants = (requireSuccess(participantResult) as Row[]).map(toParticipant);
+  responses = (responseResult.error ? [] : responseResult.data as Row[]).map(toResponse);
+  activeGame = toGame(gameRow, quiz);
+  emit({ type: 'GAME_UPDATED', game: activeGame });
+  emit({ type: 'PARTICIPANTS_UPDATED', participants });
+  emit({ type: 'RESPONSES_UPDATED', responses });
+}
 
-// Initial Seed Data (Empty as requested)
-const DEFAULT_USERS: User[] = [];
-
-const DEFAULT_QUIZZES: Quiz[] = [];
-
-
-export const normalizeGamePin = (value: unknown): string => {
-  return String(value ?? '').replace(/\D/g, '').slice(0, 6);
-};
-
-// Helper to get stored items
 export const StorageDB = {
-  getUsers(): User[] {
-    const data = localStorage.getItem('quizarena_users');
-    if (!data) {
-      localStorage.setItem('quizarena_users', JSON.stringify(DEFAULT_USERS));
-      return DEFAULT_USERS;
-    }
-    try {
-      return JSON.parse(data);
-    } catch {
-      return DEFAULT_USERS;
-    }
-  },
+  getUsers: () => users,
+  getCurrentUser: () => currentUser,
+  getQuizzes: () => quizzes,
+  getActiveGame: () => activeGame,
+  getCurrentParticipant: () => currentParticipant,
+  getParticipants: () => participants,
+  getResponses: () => responses,
+  getHistory: () => history,
 
-  saveUsers(users: User[]) {
-    localStorage.setItem('quizarena_users', JSON.stringify(users));
-    emitLocalSync({ type: 'USERS_UPDATED' });
-  },
-
-  getCurrentUser(): User | null {
-    const data = localStorage.getItem('quizarena_current_user');
-    if (!data) return null;
-    try {
-      return JSON.parse(data);
-    } catch {
-      return null;
-    }
+  async getProfile(userId: string) {
+    const result = await supabase.from('profiles').select('*').eq('id', userId).single();
+    return toUser(requireSuccess(result) as Row);
   },
 
   setCurrentUser(user: User | null) {
-    if (user) {
-      localStorage.setItem('quizarena_current_user', JSON.stringify(user));
-    } else {
-      localStorage.removeItem('quizarena_current_user');
-    }
-    emitLocalSync({ type: 'CURRENT_USER_UPDATED' });
+    currentUser = user;
+    emit({ type: 'CURRENT_USER_UPDATED' });
   },
 
-  getQuizzes(): Quiz[] {
-    const data = localStorage.getItem('quizarena_quizzes');
-    if (!data) {
-      localStorage.setItem('quizarena_quizzes', JSON.stringify([]));
-      return [];
+  async updateProfile(user: User) {
+    if (currentUser && user.email.toLowerCase() !== currentUser.email.toLowerCase()) {
+      const authResult = await supabase.auth.updateUser({ email: user.email.trim() });
+      if (authResult.error) throw new Error(authResult.error.message);
     }
-    try {
-      const parsed = JSON.parse(data);
-      // Filter out sample quizzes if any exist from older sessions
-      const clean = parsed.filter((q: Quiz) => !q.title.includes('World Geography') && !q.title.includes('JavaScript & Web'));
-      if (clean.length !== parsed.length) {
-        localStorage.setItem('quizarena_quizzes', JSON.stringify(clean));
-      }
-      return clean;
-    } catch {
-      return [];
-    }
+    const result = await supabase.from('profiles').update({ name: user.name, avatar: user.avatar || null }).eq('id', user.userId);
+    if (result.error) throw new Error(result.error.message);
+    currentUser = user;
+    users = users.map(existing => existing.userId === user.userId ? user : existing);
+    emit({ type: 'CURRENT_USER_UPDATED' });
   },
 
-  saveQuizzes(quizzes: Quiz[]) {
-    localStorage.setItem('quizarena_quizzes', JSON.stringify(quizzes));
-    emitLocalSync({ type: 'QUIZZES_UPDATED' });
-  },
-
-  getActiveGame(): GameSession | null {
-    const data = localStorage.getItem('quizarena_active_game');
-    if (!data) return null;
-    try {
-      const parsed = JSON.parse(data) as GameSession | null;
-      if (!parsed) return null;
-
-      const sanitizedGame = {
-        ...parsed,
-        gamePin: normalizeGamePin(parsed.gamePin)
-      };
-
-      if (sanitizedGame.gamePin !== parsed.gamePin) {
-        localStorage.setItem('quizarena_active_game', JSON.stringify(sanitizedGame));
-      }
-
-      return sanitizedGame;
-    } catch {
-      return null;
-    }
-  },
-
-  setActiveGame(game: GameSession | null) {
-    if (game) {
-      const normalizedGame = {
-        ...game,
-        gamePin: normalizeGamePin(game.gamePin)
-      };
-
-      localStorage.setItem('quizarena_active_game', JSON.stringify(normalizedGame));
-      void syncToServer('active', normalizedGame, 'POST');
-      emitLocalSync({ type: 'GAME_UPDATED', game: normalizedGame });
+  async initialize(user: User | null) {
+    currentUser = user;
+    if (!user) {
+      users = [];
+      quizzes = [];
+      history = [];
+      activeGame = null;
+      currentParticipant = null;
+      participants = [];
+      responses = [];
+      emit({ type: 'RESET' });
       return;
     }
 
-    localStorage.removeItem('quizarena_active_game');
-    localStorage.removeItem('quizarena_participants');
-    localStorage.removeItem('quizarena_responses');
-    void syncToServer('active', null, 'POST');
-    emitLocalSync({ type: 'GAME_UPDATED', game: null });
-  },
+    const [quizResult, historyResult] = await Promise.all([
+      supabase.from('quizzes').select('*').order('created_at', { ascending: false }),
+      supabase.from('game_history').select('*').order('started_at', { ascending: false }),
+    ]);
+    quizzes = (requireSuccess(quizResult) as Row[]).map(toQuiz);
+    history = (requireSuccess(historyResult) as Row[]).map(toHistory);
 
-  getParticipants(): Participant[] {
-    const data = localStorage.getItem('quizarena_participants');
-    if (!data) return [];
-    try {
-      return JSON.parse(data);
-    } catch {
-      return [];
+    if (user.role === 'admin') {
+      const profileResult = await supabase.from('profiles').select('*').order('created_at', { ascending: false });
+      users = (requireSuccess(profileResult) as Row[]).map(toUser);
+    } else {
+      users = [user];
     }
+
+    if (user.role === 'host' || user.role === 'admin') {
+      const gameResult = await supabase.from('games').select('*').neq('status', 'finished').order('updated_at', { ascending: false }).limit(1);
+      const gameRows = requireSuccess(gameResult) as Row[];
+      if (gameRows[0]) await loadGame(gameRows[0].game_id);
+      else {
+        activeGame = null;
+        participants = [];
+        responses = [];
+      }
+    } else {
+      const joinedResult = await supabase.from('game_participants').select('*').eq('user_id', user.userId).order('joined_at', { ascending: false }).limit(1);
+      const joinedRows = (requireSuccess(joinedResult) as Row[]);
+      if (joinedRows[0]) {
+        currentParticipant = toParticipant(joinedRows[0]);
+        await loadGame(joinedRows[0].game_id);
+      }
+      else {
+        currentParticipant = null;
+        activeGame = null;
+        participants = [];
+        responses = [];
+      }
+    }
+    emit({ type: 'DATA_LOADED' });
   },
 
   async refreshSharedState() {
-    if (typeof window === 'undefined') return;
+    if (activeGame?.gameId) await loadGame(activeGame.gameId);
+  },
 
-    try {
-      const [gameRes, participantsRes, responsesRes] = await Promise.all([
-        fetch(`${getApiBaseUrl()}/api/game/active`),
-        fetch(`${getApiBaseUrl()}/api/game/participants`),
-        fetch(`${getApiBaseUrl()}/api/game/responses`)
-      ]);
-
-      const gamePayload = await gameRes.json().catch(() => ({ activeGame: null }));
-      const participantsPayload = await participantsRes.json().catch(() => ({ participants: [] }));
-      const responsesPayload = await responsesRes.json().catch(() => ({ responses: [] }));
-
-      if (gamePayload.activeGame) {
-        localStorage.setItem('quizarena_active_game', JSON.stringify(gamePayload.activeGame));
-      }
-
-      if (Array.isArray(participantsPayload.participants)) {
-        localStorage.setItem('quizarena_participants', JSON.stringify(participantsPayload.participants));
-      }
-
-      if (Array.isArray(responsesPayload.responses)) {
-        localStorage.setItem('quizarena_responses', JSON.stringify(responsesPayload.responses));
-      }
-
-      emitLocalSync({ type: 'GAME_UPDATED', game: gamePayload.activeGame ?? null });
-      emitLocalSync({ type: 'PARTICIPANTS_UPDATED', participants: Array.isArray(participantsPayload.participants) ? participantsPayload.participants : [] });
-      emitLocalSync({ type: 'RESPONSES_UPDATED', responses: Array.isArray(responsesPayload.responses) ? responsesPayload.responses : [] });
-    } catch {
-      // Silent fallback: local browser state remains authoritative if shared backend is unavailable.
+  async saveUsers(nextUsers: User[]) {
+    for (const user of nextUsers) {
+      const result = await supabase.from('profiles').update({
+        name: user.name,
+        avatar: user.avatar || null,
+        is_disabled: user.isDisabled ?? false,
+      }).eq('id', user.userId);
+      if (result.error) throw new Error(result.error.message);
     }
+    users = nextUsers;
+    if (currentUser) currentUser = nextUsers.find(user => user.userId === currentUser?.userId) || currentUser;
+    emit({ type: 'USERS_UPDATED' });
   },
 
-  saveParticipants(participants: Participant[]) {
-    localStorage.setItem('quizarena_participants', JSON.stringify(participants));
-    void syncToServer('participants', participants, 'POST');
-    emitLocalSync({ type: 'PARTICIPANTS_UPDATED', participants });
-  },
-
-  getResponses(): Response[] {
-    const data = localStorage.getItem('quizarena_responses');
-    if (!data) return [];
-    try {
-      return JSON.parse(data);
-    } catch {
-      return [];
+  async saveQuizzes(nextQuizzes: Quiz[]) {
+    const previousIds = new Set(quizzes.map(quiz => quiz.quizId));
+    const nextIds = new Set(nextQuizzes.map(quiz => quiz.quizId));
+    if (nextQuizzes.length) {
+      const result = await supabase.from('quizzes').upsert(nextQuizzes.map(quizRow), { onConflict: 'quiz_id' });
+      if (result.error) throw new Error(result.error.message);
     }
-  },
-
-  saveResponses(responses: Response[]) {
-    localStorage.setItem('quizarena_responses', JSON.stringify(responses));
-    void syncToServer('responses', responses, 'POST');
-    emitLocalSync({ type: 'RESPONSES_UPDATED', responses });
-  },
-
-  getHistory(): GameHistoryRecord[] {
-    const data = localStorage.getItem('quizarena_history');
-    if (!data) return [];
-    try {
-      return JSON.parse(data);
-    } catch {
-      return [];
+    const removedIds = [...previousIds].filter(id => !nextIds.has(id));
+    if (removedIds.length) {
+      const result = await supabase.from('quizzes').delete().in('quiz_id', removedIds);
+      if (result.error) throw new Error(result.error.message);
     }
+    quizzes = nextQuizzes;
+    emit({ type: 'QUIZZES_UPDATED' });
   },
 
-  saveHistory(history: GameHistoryRecord[]) {
-    localStorage.setItem('quizarena_history', JSON.stringify(history));
-    emitLocalSync({ type: 'HISTORY_UPDATED' });
+  async startGame(quiz: Quiz, gamePin: string) {
+    const result = await supabase.rpc('start_game', { p_quiz_id: quiz.quizId, p_game_pin: normalizeGamePin(gamePin) });
+    const gameRow = requireSuccess(result) as Row;
+    activeGame = toGame(gameRow, quiz);
+    participants = [];
+    responses = [];
+    emit({ type: 'GAME_UPDATED', game: activeGame });
+    return activeGame;
   },
 
-  // Helper listener for cross-tab sync
+  async joinGame(gamePin: string, nickname: string, avatar: string) {
+    const sessionResult = await supabase.auth.getSession();
+    if (!sessionResult.data.session) {
+      const anonResult = await supabase.auth.signInAnonymously();
+      if (anonResult.error) throw new Error(anonResult.error.message);
+      if (anonResult.data.user) {
+        const profileResult = await supabase.from('profiles').select('*').eq('id', anonResult.data.user.id).single();
+        if (!profileResult.error) currentUser = toUser(profileResult.data as Row);
+      }
+    }
+
+    const result = await supabase.rpc('join_game', {
+      p_game_pin: normalizeGamePin(gamePin),
+      p_nickname: nickname.trim(),
+      p_avatar: avatar || null,
+    });
+    const payload = requireSuccess(result) as { game: Row; participant: Row };
+    activeGame = toGame(payload.game);
+    const joinedParticipant = toParticipant(payload.participant);
+    currentParticipant = joinedParticipant;
+    currentUser = currentUser || null;
+    await loadGame(activeGame.gameId);
+    return { game: activeGame, participant: joinedParticipant };
+  },
+
+  async setActiveGame(game: GameSession | null) {
+    if (!game) {
+      if (activeGame && (currentUser?.userId === activeGame.hostId || currentUser?.role === 'admin') && activeGame.status !== 'finished') {
+        const result = await supabase.from('games').update({ status: 'finished', ended_at: new Date().toISOString() }).eq('game_id', activeGame.gameId);
+        if (result.error) throw new Error(result.error.message);
+      }
+      activeGame = null;
+      emit({ type: 'GAME_UPDATED', game: null });
+      return;
+    }
+
+    const update = {
+      status: game.status,
+      current_question_index: game.currentQuestionIndex,
+      question_start_time: game.questionStartTime ? new Date(game.questionStartTime).toISOString() : null,
+      ended_at: game.endedAt || null,
+    };
+    const result = await supabase.from('games').update(update).eq('game_id', game.gameId).select('*').single();
+    const row = requireSuccess(result) as Row;
+    activeGame = toGame(row, game.quiz || activeGame?.quiz);
+    emit({ type: 'GAME_UPDATED', game: activeGame });
+  },
+
+  async revealGameResults(gameId: string) {
+    const result = await supabase.rpc('reveal_game_results', { p_game_id: gameId });
+    requireSuccess(result);
+    await loadGame(gameId);
+    return { game: activeGame, participants };
+  },
+
+  async submitResponse(response: Response) {
+    const result = await supabase.rpc('submit_game_response', {
+      p_game_id: response.gameId,
+      p_participant_id: response.participantId,
+      p_selected_answer: response.selectedAnswer,
+    });
+    requireSuccess(result);
+    const savedResponse = { ...response, isCorrect: false, points: 0 };
+    responses = [...responses.filter(item => !(item.participantId === response.participantId && item.questionId === response.questionId)), savedResponse];
+    emit({ type: 'RESPONSES_UPDATED', responses });
+    return savedResponse;
+  },
+
+  async saveHistory(nextHistory: GameHistoryRecord[]) {
+    const latest = nextHistory[0];
+    if (latest && currentUser) {
+      const result = await supabase.from('game_history').upsert({
+        history_id: latest.historyId,
+        game_id: latest.gameId,
+        host_id: currentUser.userId,
+        quiz_title: latest.quizTitle,
+        host_name: latest.hostName === 'Host' ? currentUser.name : latest.hostName || currentUser.name,
+        total_participants: latest.totalParticipants,
+        started_at: latest.startedAt,
+        ended_at: latest.endedAt,
+        winner_name: latest.winnerName || null,
+        winner_score: latest.winnerScore ?? null,
+        participants: latest.participants,
+      }, { onConflict: 'game_id' });
+      if (result.error) throw new Error(result.error.message);
+    }
+    history = nextHistory;
+    emit({ type: 'HISTORY_UPDATED' });
+  },
+
   subscribe(callback: (event: any) => void) {
-    const messageListener = (event: MessageEvent | CustomEvent) => {
-      const payload = 'detail' in event ? event.detail : event.data;
-      if (payload) callback(payload);
-    };
+    listeners.add(callback);
+    return () => { listeners.delete(callback); };
+  },
 
-    if (broadcastChannel) {
-      broadcastChannel.addEventListener('message', messageListener as EventListener);
-    }
-
-    const storageListener = (e: StorageEvent) => {
-      if (e.key?.startsWith('quizarena_')) {
-        callback({ type: 'STORAGE_CHANGED', key: e.key });
-      }
-    };
-
-    window.addEventListener('storage', storageListener);
-    window.addEventListener('quizarena_local_sync', messageListener as EventListener);
-
-    return () => {
-      if (broadcastChannel) {
-        broadcastChannel.removeEventListener('message', messageListener as EventListener);
-      }
-      window.removeEventListener('storage', storageListener);
-      window.removeEventListener('quizarena_local_sync', messageListener as EventListener);
-    };
-  }
+  watchGame(gameId: string) {
+    const channel = supabase.channel(`game-${gameId}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'games', filter: `game_id=eq.${gameId}` }, () => void this.refreshSharedState())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'game_participants', filter: `game_id=eq.${gameId}` }, () => void this.refreshSharedState())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'game_responses', filter: `game_id=eq.${gameId}` }, () => void this.refreshSharedState())
+      .subscribe(status => {
+        if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+          emit({ type: 'REALTIME_ERROR' });
+          if (typeof window !== 'undefined') window.dispatchEvent(new Event('supabase_realtime_error'));
+        } else if (status === 'SUBSCRIBED' && typeof window !== 'undefined') {
+          window.dispatchEvent(new Event('supabase_realtime_restored'));
+        }
+      });
+    return () => { void supabase.removeChannel(channel); };
+  },
 };

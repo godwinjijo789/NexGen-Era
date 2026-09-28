@@ -13,27 +13,29 @@ export const StudentWaitingRoom: React.FC<StudentWaitingRoomProps> = ({ particip
   const [participants, setParticipants] = useState<Participant[]>(StorageDB.getParticipants());
 
   useEffect(() => {
-    const syncGameState = async () => {
-      await StorageDB.refreshSharedState();
+    const applyGameState = () => {
       const game = StorageDB.getActiveGame();
       setActiveGame(game);
       setParticipants(StorageDB.getParticipants());
-
       if (game?.status === 'question_active') {
         setCurrentPage('student_question_screen');
       }
     };
 
-    syncGameState();
+    const syncGameState = async () => {
+      await StorageDB.refreshSharedState();
+      applyGameState();
+    };
+    void syncGameState();
 
-    const unsubscribe = StorageDB.subscribe(() => {
-      syncGameState();
-    });
+    const unsubscribe = StorageDB.subscribe(applyGameState);
 
-    const intervalId = window.setInterval(syncGameState, 500);
+    const stopWatching = StorageDB.getActiveGame()?.gameId
+      ? StorageDB.watchGame(StorageDB.getActiveGame()!.gameId)
+      : undefined;
     return () => {
       unsubscribe();
-      window.clearInterval(intervalId);
+      stopWatching?.();
     };
   }, []);
 

@@ -23,7 +23,7 @@ export const MyQuizzes: React.FC<MyQuizzesProps> = ({ currentUser, setCurrentPag
     (q.stream || q.subject || '').toLowerCase().includes(search.toLowerCase())
   );
 
-  const handleDelete = (quizId: string) => {
+  const handleDelete = async (quizId: string) => {
     const target = quizzes.find(q => q.quizId === quizId);
     if (!target) return;
 
@@ -32,11 +32,15 @@ export const MyQuizzes: React.FC<MyQuizzesProps> = ({ currentUser, setCurrentPag
 
     const allQuizzes = StorageDB.getQuizzes();
     const updated = allQuizzes.filter(q => q.quizId !== quizId);
-    StorageDB.saveQuizzes(updated);
-    setQuizzes(updated);
+    try {
+      await StorageDB.saveQuizzes(updated);
+      setQuizzes(updated);
+    } catch {
+      window.alert('Unable to delete this quiz. Please try again.');
+    }
   };
 
-  const handleDuplicate = (quiz: Quiz) => {
+  const handleDuplicate = async (quiz: Quiz) => {
     const duplicated: Quiz = {
       ...quiz,
       quizId: `quiz_${Date.now()}`,
@@ -45,8 +49,12 @@ export const MyQuizzes: React.FC<MyQuizzesProps> = ({ currentUser, setCurrentPag
     };
     const allQuizzes = StorageDB.getQuizzes();
     const updated = [duplicated, ...allQuizzes];
-    StorageDB.saveQuizzes(updated);
-    setQuizzes(updated);
+    try {
+      await StorageDB.saveQuizzes(updated);
+      setQuizzes(updated);
+    } catch {
+      window.alert('Unable to duplicate this quiz. Please try again.');
+    }
   };
 
   const openQuizSettings = (quiz: Quiz) => {
@@ -57,7 +65,7 @@ export const MyQuizzes: React.FC<MyQuizzesProps> = ({ currentUser, setCurrentPag
     });
   };
 
-  const saveQuizSettings = () => {
+  const saveQuizSettings = async () => {
     if (!settingsQuiz) return;
     const allQuizzes = StorageDB.getQuizzes();
     const updated = allQuizzes.map(q =>
@@ -69,9 +77,13 @@ export const MyQuizzes: React.FC<MyQuizzesProps> = ({ currentUser, setCurrentPag
           }
         : q
     );
-    StorageDB.saveQuizzes(updated);
-    setQuizzes(updated);
-    setSettingsQuiz(null);
+    try {
+      await StorageDB.saveQuizzes(updated);
+      setQuizzes(updated);
+      setSettingsQuiz(null);
+    } catch {
+      window.alert('Unable to save quiz settings. Please try again.');
+    }
   };
 
   return (

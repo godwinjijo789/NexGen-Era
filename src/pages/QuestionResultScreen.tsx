@@ -21,8 +21,7 @@ export const QuestionResultScreen: React.FC<QuestionResultScreenProps> = ({ part
   const myResponse = responses.find(r => r.gameId === activeGame?.gameId && r.participantId === participant?.participantId && r.questionId === currentQuestion?.id);
 
   useEffect(() => {
-    const syncGameState = async () => {
-      await StorageDB.refreshSharedState();
+    const applyGameState = () => {
       const game = StorageDB.getActiveGame();
       setActiveGame(game);
       setParticipants(StorageDB.getParticipants());
@@ -35,16 +34,20 @@ export const QuestionResultScreen: React.FC<QuestionResultScreenProps> = ({ part
       }
     };
 
-    syncGameState();
+    const syncGameState = async () => {
+      await StorageDB.refreshSharedState();
+      applyGameState();
+    };
+    void syncGameState();
 
-    const unsubscribe = StorageDB.subscribe(() => {
-      syncGameState();
-    });
+    const unsubscribe = StorageDB.subscribe(applyGameState);
 
-    const intervalId = window.setInterval(syncGameState, 500);
+    const stopWatching = StorageDB.getActiveGame()?.gameId
+      ? StorageDB.watchGame(StorageDB.getActiveGame()!.gameId)
+      : undefined;
     return () => {
       unsubscribe();
-      window.clearInterval(intervalId);
+      stopWatching?.();
     };
   }, []);
 

@@ -173,7 +173,7 @@ export const CreateQuiz: React.FC<CreateQuizProps> = ({ currentUser, setCurrentP
     }
   };
 
-  const handleSaveQuiz = (e: React.FormEvent) => {
+  const handleSaveQuiz = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage('');
     if (!title.trim()) {
@@ -201,9 +201,13 @@ export const CreateQuiz: React.FC<CreateQuizProps> = ({ currentUser, setCurrentP
     };
 
     const existing = StorageDB.getQuizzes();
-    StorageDB.saveQuizzes([newQuiz, ...existing]);
-    onQuizSaved(newQuiz);
-    setCurrentPage('my_quizzes');
+    try {
+      await StorageDB.saveQuizzes([newQuiz, ...existing]);
+      onQuizSaved(newQuiz);
+      setCurrentPage('my_quizzes');
+    } catch {
+      setErrorMessage('Unable to save the quiz. Check your connection and try again.');
+    }
   };
 
   const currentQ = questions[activeQuestionIndex] || questions[0];

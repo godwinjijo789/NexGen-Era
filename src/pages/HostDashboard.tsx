@@ -18,7 +18,7 @@ export const HostDashboard: React.FC<HostDashboardProps> = ({ currentUser, setCu
 
   const totalParticipantsCount = history.reduce((acc, h) => acc + h.totalParticipants, 0);
 
-  const handleDeleteQuiz = (quizId: string) => {
+  const handleDeleteQuiz = async (quizId: string) => {
     const target = quizzes.find(q => q.quizId === quizId);
     if (!target) return;
 
@@ -27,8 +27,12 @@ export const HostDashboard: React.FC<HostDashboardProps> = ({ currentUser, setCu
 
     const allQuizzes = StorageDB.getQuizzes();
     const updatedAll = allQuizzes.filter(q => q.quizId !== quizId);
-    StorageDB.saveQuizzes(updatedAll);
-    setQuizzes(updatedAll.filter(q => !currentUser || q.hostId === currentUser.userId || q.hostId === 'user_host_1'));
+    try {
+      await StorageDB.saveQuizzes(updatedAll);
+      setQuizzes(updatedAll.filter(q => !currentUser || q.hostId === currentUser.userId));
+    } catch {
+      window.alert('Unable to delete this quiz. Please try again.');
+    }
   };
 
   return (
@@ -131,7 +135,7 @@ export const HostDashboard: React.FC<HostDashboardProps> = ({ currentUser, setCu
               <button
                 onClick={() => {
                   if (window.confirm('End this live session?')) {
-                    StorageDB.setActiveGame(null);
+                    void StorageDB.setActiveGame(null).catch(() => window.alert('Unable to end this session. Please try again.'));
                   }
                 }}
                 className="px-4 py-2.5 rounded-xl bg-red-500/20 hover:bg-red-500/30 text-red-300 border border-red-500/30 text-xs font-extrabold transition-all"

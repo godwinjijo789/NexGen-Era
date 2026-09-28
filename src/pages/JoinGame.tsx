@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { PageId, User, Participant, GameSession } from '../types';
+import { PageId, User, Participant } from '../types';
 import { StorageDB, normalizeGamePin } from '../services/db';
+import { getSupabaseErrorMessage } from '../lib/supabase';
 import { extractJoinPinFromUrl } from '../utils/joinLink';
 import { Play, ArrowRight, Zap, User as UserIcon } from 'lucide-react';
 
@@ -42,32 +43,6 @@ export const JoinGame: React.FC<JoinGameProps> = ({ currentUser, setCurrentPage,
     }
   }, []);
 
-  const fetchActiveGameFromApi = async (): Promise<GameSession | null> => {
-    const candidateBases = [
-      (import.meta as any).env?.VITE_API_URL,
-      window.location.origin,
-      'http://localhost:4000'
-    ].filter(Boolean) as string[];
-
-    const uniqueBases = [...new Set(candidateBases.map(base => String(base).replace(/\/$/, '')))]
-      .filter(Boolean);
-
-    for (const baseUrl of uniqueBases) {
-      try {
-        const response = await fetch(`${baseUrl}/api/game/active`);
-        if (!response.ok) continue;
-        const payload = await response.json();
-        if (payload?.activeGame) {
-          return payload.activeGame as GameSession;
-        }
-      } catch {
-        // Try the next configured backend until one matches.
-      }
-    }
-
-    return null;
-  };
-
   const handleJoin = async (e: React.FormEvent) => {
     e.preventDefault();
     const normalizedPin = normalizeGamePin(gamePin);
@@ -77,75 +52,13 @@ export const JoinGame: React.FC<JoinGameProps> = ({ currentUser, setCurrentPage,
       return;
     }
 
-    await StorageDB.refreshSharedState();
-    let activeGame = StorageDB.getActiveGame() || (await fetchActiveGameFromApi());
-
-    if (!activeGame) {
-      try {
-        const fallbackFromLocal = JSON.parse(localStorage.getItem('quizarena_active_game') || 'null');
-        if (fallbackFromLocal) {
-          activeGame = fallbackFromLocal as GameSession;
-        }
-      } catch {
-        activeGame = null;
-      }
-    }
-
-    const activeGamePin = normalizeGamePin(activeGame?.gamePin);
-    if (!activeGame || activeGamePin !== normalizedPin) {
-      setError('Invalid or inactive Game PIN. Please check with your Event Co-Ordinators.');
-      return;
-    }
-
-    let participants = StorageDB.getParticipants();
     try {
-      const API_URL = String((import.meta as any).env?.VITE_API_URL || window.location.origin).replace(/\/$/, '');
-      const response = await fetch(`${API_URL}/api/game/participants`);
-      const payload = await response.json();
-      if (Array.isArray(payload.participants)) {
-        participants = payload.participants;
-      }
-    } catch {
-      // Fall back to local browser data.
+      const { participant } = await StorageDB.joinGame(normalizedPin, nickname, selectedAvatar);
+      onJoinedGame(participant);
+      setCurrentPage('student_waiting_room');
+    } catch (error) {
+      setError(getSupabaseErrorMessage(error, 'Unable to join this game. Check the PIN and try again.'));
     }
-
-    if (participants.length >= 100) {
-      setError('This game has reached the maximum limit of 100 participants.');
-      return;
-    }
-
-    if (participants.some(p => p.nickname.toLowerCase() === nickname.trim().toLowerCase())) {
-      setError('This nickname is already taken in this session. Please choose another.');
-      return;
-    }
-
-    const newParticipant: Participant = {
-      participantId: `part_${Date.now()}_${Math.random()}`,
-      gameId: activeGame.gameId,
-      nickname: nickname.trim(),
-      avatar: selectedAvatar,
-      score: 0,
-      correctAnswers: 0,
-      rank: participants.length + 1,
-      joinedAt: new Date().toISOString(),
-      isOnline: true
-    };
-
-    const updatedParticipants = [...participants, newParticipant];
-    StorageDB.saveParticipants(updatedParticipants);
-    try {
-      const API_URL = String((import.meta as any).env?.VITE_API_URL || window.location.origin).replace(/\/$/, '');
-      await fetch(`${API_URL}/api/game/participants`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(updatedParticipants),
-      });
-    } catch {
-      // Ignore if the shared backend is unavailable.
-    }
-
-    onJoinedGame(newParticipant);
-    setCurrentPage('student_waiting_room');
   };
 
   return (

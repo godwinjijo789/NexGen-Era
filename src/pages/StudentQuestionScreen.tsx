@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { PageId, GameSession, Quiz, Participant, Response } from '../types';
 import { StorageDB } from '../services/db';
+import { getSupabaseErrorMessage } from '../lib/supabase';
 import { useSound } from '../hooks/useSound';
 import { Clock, CheckCircle2, ShieldCheck, Zap } from 'lucide-react';
 
@@ -14,6 +15,7 @@ export const StudentQuestionScreen: React.FC<StudentQuestionScreenProps> = ({ pa
   const [selectedAnswer, setSelectedAnswer] = useState<number | null>(null);
   const [isLocked, setIsLocked] = useState(false);
   const [timeLeft, setTimeLeft] = useState(20);
+  const [submitError, setSubmitError] = useState('');
   const { playClick, playSuccess, playError } = useSound();
 
   const currentQuiz = activeGame?.quiz || StorageDB.getQuizzes().find(q => q.quizId === activeGame?.quizId);
@@ -25,8 +27,7 @@ export const StudentQuestionScreen: React.FC<StudentQuestionScreenProps> = ({ pa
     : ['Option A', 'Option B', 'Option C', 'Option D'];
 
   useEffect(() => {
-    const syncGameState = async () => {
-      await StorageDB.refreshSharedState();
+    const applyGameState = () => {
       const game = StorageDB.getActiveGame();
       setActiveGame(game);
 
@@ -47,16 +48,18 @@ export const StudentQuestionScreen: React.FC<StudentQuestionScreenProps> = ({ pa
       }
     };
 
-    syncGameState();
+    const syncGameState = async () => {
+      await StorageDB.refreshSharedState();
+      applyGameState();
+    };
+    void syncGameState();
 
-    const unsubscribe = StorageDB.subscribe(() => {
-      syncGameState();
-    });
+    const unsubscribe = StorageDB.subscribe(applyGameState);
 
-    const intervalId = window.setInterval(syncGameState, 500);
+    const stopWatching = activeGame?.gameId ? StorageDB.watchGame(activeGame.gameId) : undefined;
     return () => {
       unsubscribe();
-      window.clearInterval(intervalId);
+      stopWatching?.();
     };
   }, []);
 
@@ -77,37 +80,33 @@ export const StudentQuestionScreen: React.FC<StudentQuestionScreenProps> = ({ pa
     }
   }, [activeGame?.status, activeGame?.currentQuestionIndex, activeGame?.questionStartTime, currentQuestion?.id, currentQuestion?.timerSeconds]);
 
-  const handleSelectAnswer = (optIdx: number) => {
+  const handleSelectAnswer = async (optIdx: number) => {
     if (isLocked || timeLeft <= 0 || !currentQuestion || !participant || !activeGame) return;
     setSelectedAnswer(optIdx);
     setIsLocked(true);
 
-    const isCorrect = optIdx === currentQuestion.correctAnswer;
     playClick();
-    if (isCorrect) {
-      playSuccess();
-    } else {
-      playError();
-    }
+    setSubmitError('');
     const responseTime = currentQuestion.timerSeconds - timeLeft;
-    const diffMultiplier = currentQuestion.difficulty === 'Hard' ? 2 : currentQuestion.difficulty === 'Medium' ? 1.5 : 1;
-    const speedRatio = Math.max(0, (currentQuestion.timerSeconds - responseTime) / currentQuestion.timerSeconds);
-    const points = isCorrect ? Math.round((1000 + speedRatio * 500) * diffMultiplier) : 0;
-
     const newResponse: Response = {
       responseId: `resp_${Date.now()}_${participant.participantId}`,
       gameId: activeGame.gameId,
       participantId: participant.participantId,
       questionId: currentQuestion.id,
       selectedAnswer: optIdx,
-      isCorrect,
+      isCorrect: false,
       responseTime,
-      points,
+      points: 0,
       submittedAt: new Date().toISOString()
     };
 
-    const responses = StorageDB.getResponses();
-    StorageDB.saveResponses([...responses, newResponse]);
+    try {
+      await StorageDB.submitResponse(newResponse);
+    } catch (error) {
+      setIsLocked(false);
+      setSelectedAnswer(null);
+      setSubmitError(getSupabaseErrorMessage(error, 'Your answer could not be submitted. Please try again.'));
+    }
   };
 
   if (!currentQuestion || !activeGame) {
@@ -165,7 +164,9 @@ export const StudentQuestionScreen: React.FC<StudentQuestionScreenProps> = ({ pa
           </div>
         )}
 
-        {isLocked && (
+        {submitError && <div role="alert" className="rounded-xl border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-300">{submitError}</div>}
+
+        {isLocked && !submitError && (
           <div className="p-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 text-sm font-bold">
             <CheckCircle2 className="w-5 h-5 inline-block mr-2 align-text-bottom" />
             Answer locked. Waiting for the host to show scores.

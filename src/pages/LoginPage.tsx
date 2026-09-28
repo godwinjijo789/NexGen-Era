@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { PageId, User } from '../types';
-import { getApiBaseUrl, StorageDB } from '../services/db';
+import { StorageDB } from '../services/db';
+import { getSupabaseErrorMessage, supabase } from '../lib/supabase';
 import { Zap, Lock, Mail, ArrowRight } from 'lucide-react';
 
 interface LoginPageProps {
@@ -18,36 +19,32 @@ export const LoginPage: React.FC<LoginPageProps> = ({ setCurrentPage, onLogin })
     setError('');
 
     try {
-      const API_URL = getApiBaseUrl();
-      const response = await fetch(`${API_URL}/api/auth/login`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        setError(data.message || 'Invalid email or password. Please use the registered credentials.');
+      const { data, error: authError } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
+      if (authError || !data.user) {
+        setError(getSupabaseErrorMessage(authError, 'Invalid email or password. Please check your credentials.'));
         return;
       }
 
-      const found: User = data.user;
+      const found: User = await StorageDB.getProfile(data.user.id);
 
       if (found.isDisabled) {
+        await supabase.auth.signOut();
         setError('This account has been disabled by an administrator.');
         return;
       }
 
-      const users = StorageDB.getUsers();
-      StorageDB.saveUsers([...users.filter(u => u.email.toLowerCase() !== found.email.toLowerCase()), found]);
+      await StorageDB.initialize(found);
       onLogin(found);
 
       if (found.role === 'host') setCurrentPage('host_dashboard');
       else if (found.role === 'admin') setCurrentPage('admin_dashboard');
+      else if (StorageDB.getActiveGame()?.status === 'question_active') setCurrentPage('student_question_screen');
+      else if (StorageDB.getActiveGame()?.status === 'question_result' || StorageDB.getActiveGame()?.status === 'leaderboard') setCurrentPage('question_result_screen');
+      else if (StorageDB.getActiveGame()?.status === 'finished') setCurrentPage('final_results');
+      else if (StorageDB.getActiveGame()) setCurrentPage('student_waiting_room');
       else setCurrentPage('join_game');
     } catch (error) {
-      setError('Unable to reach the authentication server. Please try again.');
+      setError(getSupabaseErrorMessage(error, 'Unable to sign in. Please try again.'));
     }
   };
 

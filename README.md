@@ -2,27 +2,22 @@
 <img width="1200" height="475" alt="GHBanner" src="https://ai.google.dev/static/site-assets/images/share-ais-513315318.png" />
 </div>
 
-# Run and deploy your AI Studio app
+# NexGen Era
 
-This contains everything you need to run your app locally.
+NexGen Era is a React/Vite quiz application backed by Supabase Authentication, PostgreSQL, and Realtime. The frontend deploys to Vercel without a separate API server.
 
-View your app in AI Studio: https://ai.studio/apps/87afdd10-8a0e-48bf-85ba-87e645c499d2
+## Local Development
 
-## Run Locally
+1. Run `npm install`.
+2. Copy `.env.example` to `.env.local` and set `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` from your Supabase project's API settings. `VITE_GEMINI_API_KEY` is optional and enables AI quiz generation.
+3. Run `npm run dev`.
 
-**Prerequisites:**  Node.js
+## Supabase Setup
 
+Run `supabase/migrations/20260928000000_initial_schema.sql` in the Supabase SQL Editor. In Authentication settings, enable Email/Password and Anonymous sign-ins. For the first administrator, promote the account after registration with `UPDATE public.profiles SET role = 'admin' WHERE email = 'admin@example.com';` in the SQL Editor.
 
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+Set `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` in Vercel for Preview and Production. `VITE_GEMINI_API_KEY` is optional if AI quiz generation is needed. Never use a service-role key in the frontend.
 
-## Cross-Device Authentication
+## Existing Accounts
 
-Registration and login use the shared Express authentication API. The repository default is the deployed backend below. If you deploy another backend, set the Vercel environment variable `VITE_API_URL` to that backend's public URL:
-
-`VITE_API_URL=https://nexgen-era-api.onrender.com`
-
-Deploy the backend separately with a persistent `DB_PATH` or hosted database. Do not rely on browser local storage for accounts; local storage is only a client-side cache.
+The previous backend stored passwords as PBKDF2 hashes in SQLite. These hashes cannot be imported as Supabase Auth credentials; users must create new Supabase accounts. Existing quizzes and history were browser-local and are not automatically available on another device; recreate quizzes after cutover.

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { PageId, User } from '../types';
 import { StorageDB } from '../services/db';
+import { getSupabaseErrorMessage } from '../lib/supabase';
 import { Sound } from '../services/sound';
 import { User as UserIcon, Mail, Save, ArrowLeft, Volume2, Image as ImageIcon, CheckCircle2, Check, Sun, Moon } from 'lucide-react';
 
@@ -24,6 +25,7 @@ export const ProfileSettings: React.FC<ProfileSettingsProps> = ({ currentUser, s
   const [email, setEmail] = useState(currentUser?.email || '');
   const [avatar, setAvatar] = useState(currentUser?.avatar || '');
   const [saveSuccess, setSaveSuccess] = useState(false);
+  const [saveError, setSaveError] = useState('');
   const [soundEnabled, setSoundEnabled] = useState(() => {
     return localStorage.getItem('nexgen_sound') !== 'false';
   });
@@ -62,7 +64,7 @@ export const ProfileSettings: React.FC<ProfileSettingsProps> = ({ currentUser, s
     );
   }
 
-  const handleSave = (e?: React.FormEvent) => {
+  const handleSave = async (e?: React.FormEvent) => {
     if (e) {
       e.preventDefault();
     }
@@ -75,24 +77,16 @@ export const ProfileSettings: React.FC<ProfileSettingsProps> = ({ currentUser, s
       avatar: avatar.trim()
     };
 
-    StorageDB.setCurrentUser(updated);
-    const existingUsers = StorageDB.getUsers();
-    const userIndex = existingUsers.findIndex(u => u.userId === updated.userId);
-    let updatedUsers: User[];
-    if (userIndex >= 0) {
-      updatedUsers = existingUsers.map(u => u.userId === updated.userId ? updated : u);
-    } else {
-      updatedUsers = [...existingUsers, updated];
+    setSaveError('');
+    try {
+      await StorageDB.updateProfile(updated);
+      onUserUpdated(updated);
+      Sound.playSuccess();
+      setSaveSuccess(true);
+      setTimeout(() => setSaveSuccess(false), 3500);
+    } catch (error) {
+      setSaveError(getSupabaseErrorMessage(error, 'Unable to save profile changes. Please try again.'));
     }
-    StorageDB.saveUsers(updatedUsers);
-
-    onUserUpdated(updated);
-
-    Sound.playSuccess();
-    setSaveSuccess(true);
-    setTimeout(() => {
-      setSaveSuccess(false);
-    }, 3500);
   };
 
   return (
@@ -133,6 +127,7 @@ export const ProfileSettings: React.FC<ProfileSettingsProps> = ({ currentUser, s
               <span>Profile changes saved successfully!</span>
             </div>
           )}
+          {saveError && <div role="alert" className="rounded-xl border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-300">{saveError}</div>}
 
           <form onSubmit={handleSave} className="space-y-5 sm:space-y-6">
             <div>

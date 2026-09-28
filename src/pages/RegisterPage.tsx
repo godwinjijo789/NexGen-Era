@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { PageId, User, UserRole } from '../types';
-import { getApiBaseUrl, StorageDB } from '../services/db';
+import { StorageDB } from '../services/db';
+import { getSupabaseErrorMessage, supabase } from '../lib/supabase';
 import { Zap, Lock, Mail, User as UserIcon, ArrowRight, BookOpen, Play } from 'lucide-react';
 
 interface RegisterPageProps {
@@ -21,37 +22,37 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({ setCurrentPage, onLo
     setError('');
 
     try {
-      const API_URL = getApiBaseUrl();
-      const response = await fetch(`${API_URL}/api/auth/register`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name,
-          email,
-          password,
+      const avatar = `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(name || 'user')}`;
+      const { data, error: authError } = await supabase.auth.signUp({
+        email: email.trim(),
+        password,
+        options: { data: {
+          name: name.trim(),
           role,
-          participantId: role === 'participant' ? (participantId || `PART-${Math.floor(1000 + Math.random() * 9000)}`) : undefined,
-          avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(name || 'user')}`,
-        }),
+          participantId: role === 'participant' ? (participantId || `PART-${Math.floor(1000 + Math.random() * 9000)}`) : null,
+          avatar,
+        } },
       });
 
-      const data = await response.json();
-
-      if (!response.ok) {
-        setError(data.message || 'Unable to create account.');
+      if (authError || !data.user) {
+        setError(getSupabaseErrorMessage(authError, 'Unable to create account.'));
         return;
       }
 
-      const newUser: User = data.user;
+      if (!data.session) {
+        setError('Check your email to confirm your account, then sign in.');
+        setCurrentPage('login');
+        return;
+      }
 
-      const users = StorageDB.getUsers();
-      StorageDB.saveUsers([...users.filter(u => u.email.toLowerCase() !== newUser.email.toLowerCase()), newUser]);
+      const newUser: User = await StorageDB.getProfile(data.user.id);
+      await StorageDB.initialize(newUser);
       onLogin(newUser);
 
       if (role === 'host') setCurrentPage('host_dashboard');
       else setCurrentPage('join_game');
     } catch (error) {
-      setError('Unable to reach the authentication server. Please try again.');
+      setError(getSupabaseErrorMessage(error, 'Unable to create account. Please try again.'));
     }
   };
 

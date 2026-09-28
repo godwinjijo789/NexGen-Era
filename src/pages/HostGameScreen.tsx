@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { PageId, GameSession, Quiz, Participant, Response } from '../types';
 import { StorageDB } from '../services/db';
+import { getSupabaseErrorMessage } from '../lib/supabase';
 import { buildJoinLink, buildQrCodeUrl } from '../utils/joinLink';
 import { Play, Users, Trophy, ArrowRight, CheckCircle2, Clock, Zap, Square, AlertCircle, Copy, QrCode } from 'lucide-react';
 
@@ -17,6 +18,7 @@ export const HostGameScreen: React.FC<HostGameScreenProps> = ({ game, quiz, setC
   const [responses, setResponses] = useState<Response[]>(StorageDB.getResponses());
   const [timeLeft, setTimeLeft] = useState<number>(20);
   const [joinLink, setJoinLink] = useState<string>('');
+  const [actionError, setActionError] = useState('');
   const resultsInProgress = useRef(false);
 
   useEffect(() => {
@@ -29,28 +31,45 @@ export const HostGameScreen: React.FC<HostGameScreenProps> = ({ game, quiz, setC
   // Subscribe to real-time storage / broadcast sync
   useEffect(() => {
     const refreshLiveState = async () => {
-      await StorageDB.refreshSharedState();
-      setActiveGame(StorageDB.getActiveGame());
-      setParticipants(StorageDB.getParticipants());
-      setResponses(StorageDB.getResponses());
+      try {
+        await StorageDB.refreshSharedState();
+        setActiveGame(StorageDB.getActiveGame());
+        setParticipants(StorageDB.getParticipants());
+        setResponses(StorageDB.getResponses());
+      } catch (error) {
+        setActionError(getSupabaseErrorMessage(error, 'Unable to load live game data. Check your connection.'));
+      }
     };
 
     refreshLiveState();
 
     const unsubscribe = StorageDB.subscribe(() => {
-      refreshLiveState();
+      setActiveGame(StorageDB.getActiveGame());
+      setParticipants(StorageDB.getParticipants());
+      setResponses(StorageDB.getResponses());
     });
 
-    const intervalId = window.setInterval(refreshLiveState, 500);
+    const stopWatching = (game || StorageDB.getActiveGame())?.gameId
+      ? StorageDB.watchGame((game || StorageDB.getActiveGame())!.gameId)
+      : undefined;
     return () => {
       unsubscribe();
-      window.clearInterval(intervalId);
+      stopWatching?.();
     };
   }, []);
 
   const currentQuiz = activeGame?.quiz || quiz || StorageDB.getQuizzes().find(q => q.quizId === activeGame?.quizId);
   const currentQuestion = currentQuiz?.questions[activeGame?.currentQuestionIndex || 0];
   const topParticipants = [...participants].sort((a, b) => b.score - a.score).slice(0, 10);
+
+  const persistGame = async (updatedGame: GameSession | null) => {
+    setActionError('');
+    try {
+      await StorageDB.setActiveGame(updatedGame);
+    } catch (error) {
+      setActionError(getSupabaseErrorMessage(error, 'Unable to save the game update. Please retry.'));
+    }
+  };
 
   // Use the shared start timestamp so the host timer cannot drift by interval length.
   useEffect(() => {
@@ -97,53 +116,22 @@ export const HostGameScreen: React.FC<HostGameScreenProps> = ({ game, quiz, setC
       questionStartTime: Date.now(),
       quiz: currentQuiz || activeGame.quiz || quiz || null
     };
-    StorageDB.setActiveGame(updated);
+    void persistGame(updated);
     setActiveGame(updated);
   };
 
-  const handleShowResults = () => {
+  const handleShowResults = async () => {
     if (activeGame.status !== 'question_active' || resultsInProgress.current) return;
     resultsInProgress.current = true;
-
-    const syncedGame = activeGame;
-    const syncedParticipants = participants;
-    const syncedResponses = responses;
-
-    // Calculate scores for this question
-    const q = currentQuiz.questions[syncedGame.currentQuestionIndex];
-    const currentResponses = syncedResponses.filter(r => r.gameId === syncedGame.gameId && r.questionId === q.id);
-    
-    // Update participant scores
-    const updatedParticipants = syncedParticipants.map(p => {
-      const resp = currentResponses.find(r => r.participantId === p.participantId);
-      if (resp && resp.isCorrect) {
-        // Points calculation: base 1000 + speed bonus + difficulty multiplier
-        const diffMultiplier = q.difficulty === 'Hard' ? 2 : q.difficulty === 'Medium' ? 1.5 : 1;
-        const speedRatio = Math.max(0, (q.timerSeconds - resp.responseTime) / q.timerSeconds);
-        const earned = Math.round((1000 + speedRatio * 500) * diffMultiplier);
-        return {
-          ...p,
-          score: p.score + earned,
-          correctAnswers: p.correctAnswers + 1
-        };
-      }
-      return p;
-    });
-
-    // Sort by score and update ranks
-    updatedParticipants.sort((a, b) => b.score - a.score);
-    updatedParticipants.forEach((p, idx) => { p.rank = idx + 1; });
-
-    StorageDB.saveParticipants(updatedParticipants);
-    setParticipants(updatedParticipants);
-
-    const updatedGame: GameSession = {
-      ...syncedGame,
-      status: 'question_result',
-      quiz: currentQuiz || activeGame.quiz || quiz || null
-    };
-    StorageDB.setActiveGame(updatedGame);
-    setActiveGame(updatedGame);
+    try {
+      const result = await StorageDB.revealGameResults(activeGame.gameId);
+      setActiveGame(result.game);
+      setParticipants(result.participants);
+      setResponses(StorageDB.getResponses());
+    } catch (error) {
+      resultsInProgress.current = false;
+      setActionError(getSupabaseErrorMessage(error, 'Unable to reveal results. Please retry.'));
+    }
   };
 
   const handleNextOrLeaderboard = () => {
@@ -151,12 +139,13 @@ export const HostGameScreen: React.FC<HostGameScreenProps> = ({ game, quiz, setC
     if (nextIdx >= currentQuiz.questions.length) {
       // Game Finished
       const updatedGame: GameSession = { ...activeGame, status: 'finished', endedAt: new Date().toISOString() };
-      StorageDB.setActiveGame(updatedGame);
+      void persistGame(updatedGame);
       setActiveGame(updatedGame);
 
       // Save to history
       const history = StorageDB.getHistory();
-      const winner = participants.length > 0 ? participants[0] : null;
+      const finalParticipants = [...participants].sort((first, second) => second.score - first.score);
+      const winner = finalParticipants[0] || null;
       history.unshift({
         historyId: `hist_${Date.now()}`,
         gameId: activeGame.gameId,
@@ -167,9 +156,11 @@ export const HostGameScreen: React.FC<HostGameScreenProps> = ({ game, quiz, setC
         endedAt: new Date().toISOString(),
         winnerName: winner?.nickname,
         winnerScore: winner?.score,
-        participants
+        participants: finalParticipants
       });
-      StorageDB.saveHistory(history);
+      void StorageDB.saveHistory(history).catch(error => {
+        setActionError(getSupabaseErrorMessage(error, 'Unable to save game history. Please retry.'));
+      });
       setCurrentPage('final_results');
     } else {
       resultsInProgress.current = false;
@@ -180,7 +171,7 @@ export const HostGameScreen: React.FC<HostGameScreenProps> = ({ game, quiz, setC
         questionStartTime: Date.now(),
         quiz: currentQuiz || activeGame.quiz || quiz || null
       };
-      StorageDB.setActiveGame(updatedGame);
+      void persistGame(updatedGame);
       setActiveGame(updatedGame);
     }
   };
@@ -199,6 +190,7 @@ export const HostGameScreen: React.FC<HostGameScreenProps> = ({ game, quiz, setC
 
   return (
     <div className="min-h-screen bg-slate-950 text-white flex flex-col justify-between">
+      {actionError && <div role="alert" className="border-b border-red-500/30 bg-red-500/10 px-4 py-2 text-center text-sm text-red-300">{actionError}</div>}
       {/* Top Header */}
       <div className="max-w-7xl mx-auto w-full px-3.5 sm:px-6 lg:px-8 py-3.5 sm:py-6 flex flex-wrap items-center justify-between gap-3 border-b border-slate-800">
         <div className="flex items-center space-x-2.5 sm:space-x-3">
@@ -221,7 +213,7 @@ export const HostGameScreen: React.FC<HostGameScreenProps> = ({ game, quiz, setC
             onClick={() => {
               if (confirm('End this live game session?')) {
                 setCurrentPage('host_dashboard');
-                StorageDB.setActiveGame(null);
+                void persistGame(null);
                 onEndGame();
               }
             }}

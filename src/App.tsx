@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { PageId, User, Quiz, GameSession, Participant } from './types';
 import { StorageDB } from './services/db';
+import { supabase } from './lib/supabase';
 import { Navbar } from './components/Navbar';
 
 import { LandingPage } from './pages/LandingPage';
@@ -22,11 +23,12 @@ import { AdminDashboard } from './pages/AdminDashboard';
 import { ProfileSettings } from './pages/ProfileSettings';
 
 export default function App() {
-  const [currentUser, setCurrentUser] = useState<User | null>(StorageDB.getCurrentUser());
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [currentPage, setCurrentPage] = useState<PageId>(currentUser ? (currentUser.role === 'host' ? 'host_dashboard' : currentUser.role === 'admin' ? 'admin_dashboard' : 'join_game') : 'landing');
   const [selectedQuiz, setSelectedQuiz] = useState<Quiz | null>(null);
-  const [activeGame, setActiveGame] = useState<GameSession | null>(StorageDB.getActiveGame());
+  const [activeGame, setActiveGame] = useState<GameSession | null>(null);
   const [currentParticipant, setCurrentParticipant] = useState<Participant | null>(null);
+  const [realtimeError, setRealtimeError] = useState(false);
 
   // Sync active game across tabs
   useEffect(() => {
@@ -39,19 +41,63 @@ export default function App() {
       document.documentElement.setAttribute('data-theme', 'dark');
     }
 
+    let mounted = true;
+    const handleRealtimeError = () => setRealtimeError(true);
+    const handleRealtimeRestored = () => setRealtimeError(false);
+    window.addEventListener('supabase_realtime_error', handleRealtimeError);
+    window.addEventListener('supabase_realtime_restored', handleRealtimeRestored);
+    const restoreSession = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!mounted) return;
+      if (session?.user) {
+        try {
+          const user = await StorageDB.getProfile(session.user.id);
+          if (user.isDisabled) {
+            await supabase.auth.signOut();
+            return;
+          }
+          await StorageDB.initialize(user);
+          if (!mounted) return;
+          setCurrentParticipant(StorageDB.getCurrentParticipant());
+          setCurrentUser(user);
+          const restoredGame = StorageDB.getActiveGame();
+          setCurrentPage(user.role === 'host' ? 'host_dashboard' : user.role === 'admin' ? 'admin_dashboard' :
+            restoredGame?.status === 'question_active' ? 'student_question_screen' :
+              restoredGame?.status === 'question_result' || restoredGame?.status === 'leaderboard' ? 'question_result_screen' :
+                restoredGame?.status === 'finished' ? 'final_results' : restoredGame ? 'student_waiting_room' : 'join_game');
+        } catch {
+          await supabase.auth.signOut();
+        }
+      }
+    };
+    void restoreSession();
+    const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (!session) {
+        void StorageDB.initialize(null);
+        setCurrentUser(null);
+      }
+    });
     const unsubscribe = StorageDB.subscribe(() => {
       setActiveGame(StorageDB.getActiveGame());
     });
-    return unsubscribe;
+    return () => {
+      mounted = false;
+      window.removeEventListener('supabase_realtime_error', handleRealtimeError);
+      window.removeEventListener('supabase_realtime_restored', handleRealtimeRestored);
+      authListener.subscription.unsubscribe();
+      unsubscribe();
+    };
   }, []);
 
   const handleLogin = (user: User) => {
+    setCurrentParticipant(StorageDB.getCurrentParticipant());
     StorageDB.setCurrentUser(user);
     setCurrentUser(user);
   };
 
   const handleLogout = () => {
-    StorageDB.setCurrentUser(null);
+    void supabase.auth.signOut();
+    void StorageDB.initialize(null);
     setCurrentUser(null);
     setCurrentPage('landing');
   };
@@ -67,6 +113,7 @@ export default function App() {
       />
 
       <main className="flex-1">
+        {realtimeError && <div role="status" className="border-b border-amber-500/30 bg-amber-500/10 px-4 py-2 text-center text-sm text-amber-200">Live updates are temporarily unavailable. Reconnect or refresh to restore synchronization.</div>}
         {currentPage === 'landing' && <LandingPage setCurrentPage={setCurrentPage} currentUser={currentUser} />}
         {currentPage === 'login' && <LoginPage setCurrentPage={setCurrentPage} onLogin={handleLogin} />}
         {currentPage === 'register' && <RegisterPage setCurrentPage={setCurrentPage} onLogin={handleLogin} />}
