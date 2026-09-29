@@ -130,6 +130,7 @@ const toHistory = (row: Row): GameHistoryRecord => ({
   winnerName: row.winner_name || undefined,
   winnerScore: row.winner_score ?? undefined,
   participants: row.participants || [],
+  quizBreakdown: row.quiz_breakdown || [],
 });
 
 const quizRow = (quiz: Quiz) => ({
@@ -483,6 +484,7 @@ export const StorageDB = {
         winner_name: latest.winnerName || null,
         winner_score: latest.winnerScore ?? null,
         participants: latest.participants,
+        quiz_breakdown: latest.quizBreakdown || [],
       }, { onConflict: 'game_id' });
       if (result.error) throw new Error(result.error.message);
     }

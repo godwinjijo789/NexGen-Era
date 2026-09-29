@@ -162,6 +162,29 @@ export const QuizHistory: React.FC<QuizHistoryProps> = ({ currentUser, setCurren
                       </span>
                     )}
                   </div>
+
+                  {!!record.quizBreakdown?.length && (
+                    <details className="mt-3 rounded-lg border border-slate-800 bg-slate-950/50 p-3">
+                      <summary className="cursor-pointer text-xs font-bold text-indigo-300">
+                        Scores by quiz ({record.quizBreakdown.length})
+                      </summary>
+                      <div className="mt-3 max-h-64 space-y-3 overflow-y-auto">
+                        {record.quizBreakdown.map(quizResult => (
+                          <section key={quizResult.quizId}>
+                            <h4 className="mb-1 text-xs font-bold text-slate-200">{quizResult.quizTitle}</h4>
+                            <div className="space-y-1">
+                              {quizResult.participants.map(participant => (
+                                <div key={participant.participantId} className="flex items-center justify-between gap-3 rounded-md bg-slate-900 px-2.5 py-1.5 text-[11px]">
+                                  <span className="truncate text-slate-300">#{participant.rank} {participant.nickname}</span>
+                                  <span className="shrink-0 font-bold text-indigo-300">{participant.score} pts</span>
+                                </div>
+                              ))}
+                            </div>
+                          </section>
+                        ))}
+                      </div>
+                    </details>
+                  )}
                 </div>
 
                 <button

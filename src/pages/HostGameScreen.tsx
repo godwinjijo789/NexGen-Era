@@ -153,6 +153,32 @@ export const HostGameScreen: React.FC<HostGameScreenProps> = ({ game, quiz, setC
       const history = StorageDB.getHistory();
       const finalParticipants = [...participants].sort((first, second) => second.score - first.score);
       const winner = finalParticipants[0] || null;
+      const quizBreakdown = currentQuiz.isArchived
+        ? StorageDB.getQuizzes()
+          .filter(sourceQuiz => sourceQuiz.folderId === currentQuiz.folderId)
+          .map(sourceQuiz => {
+            const sourceQuestionIds = new Set(sourceQuiz.questions.map(question => `${sourceQuiz.quizId}_${question.id}`));
+            const sourceParticipants = participants.map(participant => {
+              const sourceResponses = responses.filter(response =>
+                response.gameId === activeGame.gameId &&
+                response.participantId === participant.participantId &&
+                sourceQuestionIds.has(response.questionId)
+              );
+              return {
+                ...participant,
+                score: sourceResponses.reduce((total, response) => total + response.points, 0),
+                correctAnswers: sourceResponses.filter(response => response.isCorrect).length,
+                rank: 0,
+              };
+            }).sort((first, second) => second.score - first.score || first.joinedAt.localeCompare(second.joinedAt));
+            sourceParticipants.forEach((participant, index) => { participant.rank = index + 1; });
+            return {
+              quizId: sourceQuiz.quizId,
+              quizTitle: sourceQuiz.title,
+              participants: sourceParticipants,
+            };
+          })
+        : undefined;
       history.unshift({
         historyId: `hist_${Date.now()}`,
         gameId: activeGame.gameId,
@@ -164,7 +190,8 @@ export const HostGameScreen: React.FC<HostGameScreenProps> = ({ game, quiz, setC
         endedAt: new Date().toISOString(),
         winnerName: winner?.nickname,
         winnerScore: winner?.score,
-        participants: finalParticipants
+        participants: finalParticipants,
+        quizBreakdown
       });
       void StorageDB.saveHistory(history).catch(error => {
         setActionError(getSupabaseErrorMessage(error, 'Unable to save game history. Please retry.'));

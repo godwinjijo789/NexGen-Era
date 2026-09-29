@@ -106,6 +106,11 @@ export interface GameHistoryRecord {
   winnerName?: string;
   winnerScore?: number;
   participants: Participant[];
+  quizBreakdown?: Array<{
+    quizId: string;
+    quizTitle: string;
+    participants: Participant[];
+  }>;
 }
 
 export type PageId =
