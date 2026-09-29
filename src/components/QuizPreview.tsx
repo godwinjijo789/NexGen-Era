@@ -78,13 +78,7 @@ export const QuizPreview: React.FC<QuizPreviewProps> = ({ title, coverImage, que
           <X className="h-5 w-5" />
         </button>
         <div className="mx-auto flex min-h-[calc(100dvh-2rem)] max-w-4xl flex-col items-center justify-center gap-6 py-12 text-center">
-          {coverImage ? (
-            <img src={coverImage} alt={`${title || 'Quiz'} cover`} className="max-h-[55vh] w-full rounded-lg object-cover shadow-2xl" />
-          ) : (
-            <div className="flex aspect-video max-h-[45vh] w-full items-center justify-center rounded-lg border border-slate-700 bg-slate-900 text-slate-500">
-              No cover image
-            </div>
-          )}
+          {coverImage && <img src={coverImage} alt={`${title || 'Quiz'} cover`} className="max-h-[55vh] w-full rounded-lg object-cover shadow-2xl" />}
           <div className="space-y-2">
             <p className="text-xs font-bold uppercase tracking-widest text-indigo-300">Quiz Preview</p>
             <h2 className="text-2xl font-black sm:text-4xl">{title || 'Untitled Quiz'}</h2>
@@ -112,19 +106,17 @@ export const QuizPreview: React.FC<QuizPreviewProps> = ({ title, coverImage, que
             <Clock className="mr-1 h-4 w-4 sm:h-5 sm:w-5" />{timeLeft}
           </div>
 
-          <div className="flex min-h-48 items-center justify-center overflow-hidden bg-white sm:min-h-64">
-            {(question.mediaUrl || question.imageUrl) ? (
-              question.mediaType === 'video' ? (
+          {(question.mediaUrl || question.imageUrl) && (
+            <div className="flex min-h-48 items-center justify-center overflow-hidden bg-white sm:min-h-64">
+              {question.mediaType === 'video' ? (
                 <video src={question.mediaUrl || question.imageUrl} controls className="max-h-[42vh] max-w-full object-contain" />
               ) : (
                 <img src={question.mediaUrl || question.imageUrl} alt="Question visual" className="max-h-[42vh] max-w-full object-contain" />
-              )
-            ) : (
-              <p className="px-4 text-center text-lg font-bold text-slate-500">{question.text || 'Question image'}</p>
-            )}
-          </div>
+              )}
+            </div>
+          )}
 
-          <div className="text-center">
+          <div className={`text-center ${(question.mediaUrl || question.imageUrl) ? '' : 'col-start-3'}`}>
             <span className="block text-2xl font-black tabular-nums sm:text-3xl">{answeredTeams.filter(team => team.hasAnswered).length}</span>
             <span className="text-xs font-bold sm:text-sm">Answers</span>
           </div>

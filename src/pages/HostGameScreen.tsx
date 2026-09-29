@@ -3,7 +3,7 @@ import { PageId, GameSession, Quiz, Participant, Response } from '../types';
 import { StorageDB } from '../services/db';
 import { getSupabaseErrorMessage } from '../lib/supabase';
 import { buildJoinLink, buildQrCodeUrl } from '../utils/joinLink';
-import { Play, Users, Trophy, ArrowRight, CheckCircle2, Clock, Zap, Square, AlertCircle, Copy, QrCode } from 'lucide-react';
+import { Play, Users, Trophy, ArrowRight, CheckCircle2, Clock, Zap, Square, Circle, Diamond, Triangle, AlertCircle, Copy, QrCode } from 'lucide-react';
 
 interface HostGameScreenProps {
   game: GameSession | null;
@@ -346,75 +346,22 @@ export const HostGameScreen: React.FC<HostGameScreenProps> = ({ game, quiz, setC
         )}
 
         {activeGame.status === 'question_active' && currentQuestion && (
-          <div className="max-w-6xl mx-auto w-full xl:max-h-[calc(100vh-150px)] xl:overflow-hidden grid grid-cols-1 xl:grid-cols-[minmax(0,1.5fr)_340px] gap-3 sm:gap-5">
-            <div className="space-y-3 sm:space-y-4 text-center min-w-0">
-              <div className="flex items-center justify-between px-3 sm:px-5 py-2 sm:py-2.5 rounded-xl sm:rounded-2xl bg-slate-900/80 border border-slate-800 backdrop-blur-xl">
-                <span className="text-xs sm:text-sm font-bold text-indigo-400">
-                  Q{activeGame.currentQuestionIndex + 1} of {currentQuiz.questions.length}
-                </span>
-                <div className="flex items-center space-x-1.5 px-3 py-1 rounded-full bg-indigo-600/20 border border-indigo-500/30 text-indigo-300 font-extrabold text-xs sm:text-sm">
-                  <Clock className="w-3.5 h-3.5" />
-                  <span>{timeLeft}s</span>
-                </div>
-                <span className="text-xs sm:text-sm font-bold text-emerald-400">
-                  {currentQuestionResponses.length}/{participants.length} In
-                </span>
-              </div>
-
-              <div className="p-3 sm:p-5 rounded-2xl sm:rounded-3xl bg-slate-900/80 border border-slate-800 backdrop-blur-xl shadow-2xl space-y-2 sm:space-y-3">
-                <h2 className="text-lg sm:text-2xl font-extrabold text-white leading-snug">{currentQuestion.text}</h2>
-
-                {(currentQuestion.mediaUrl || currentQuestion.imageUrl) && (
-                  <div className="max-w-md mx-auto rounded-xl sm:rounded-2xl overflow-hidden border border-slate-800 bg-slate-950">
-                    {currentQuestion.mediaType === 'video' ? (
-                      <video src={currentQuestion.mediaUrl || currentQuestion.imageUrl} controls className="w-full max-h-32 sm:max-h-40 object-cover" />
-                    ) : (
-                      <img src={currentQuestion.mediaUrl || currentQuestion.imageUrl} alt="Question visual" className="w-full h-28 sm:h-40 object-cover" />
-                    )}
-                  </div>
-                )}
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3 pt-1 sm:pt-2">
-                  {currentQuestion.options.map((opt, optIdx) => {
-                    const colors = ['bg-red-600/20 border-red-500/40 text-red-300', 'bg-blue-600/20 border-blue-500/40 text-blue-300', 'bg-amber-600/20 border-amber-500/40 text-amber-300', 'bg-emerald-600/20 border-emerald-500/40 text-emerald-300'];
-                    const letters = ['A', 'B', 'C', 'D'];
-                    return (
-                      <div key={optIdx} className={`p-2.5 sm:p-3 rounded-xl sm:rounded-2xl border ${colors[optIdx]} font-bold text-sm sm:text-base flex items-center space-x-2 sm:space-x-3 shadow-md`}>
-                        <span className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg sm:rounded-xl bg-slate-950/80 flex items-center justify-center text-xs font-extrabold shrink-0">
-                          {letters[optIdx]}
-                        </span>
-                        <span className="flex-1 text-left break-words">{opt}</span>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-
-              <button
-                disabled={isRevealing}
-                onClick={handleShowResults}
-                className="w-full sm:w-auto px-5 sm:px-7 py-2.5 rounded-xl sm:rounded-2xl bg-indigo-600 hover:bg-indigo-500 disabled:opacity-60 text-white font-bold text-xs sm:text-sm shadow-lg shadow-indigo-600/30 transition-all active:scale-98"
-              >
-                {isRevealing ? 'Revealing Results...' : 'Skip Timer & Show Results'}
-              </button>
-            </div>
-
-            <aside className="rounded-2xl sm:rounded-3xl border border-slate-800 bg-slate-900/80 p-3 sm:p-4 shadow-2xl h-fit min-w-0">
-              <div className="flex items-center justify-between mb-2 sm:mb-3">
-                <h3 className="text-sm sm:text-base font-extrabold text-white">Live Leaderboard</h3>
-                <span className="px-2 py-1 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-300 text-[10px] font-bold uppercase tracking-wider">
+          <div className="mx-auto grid w-full max-w-7xl grid-cols-1 gap-3 sm:gap-5 xl:grid-cols-[280px_minmax(0,1fr)] xl:items-start">
+            <aside className="min-w-0 rounded-xl border border-slate-800 bg-slate-900/90 p-3 shadow-xl sm:rounded-2xl sm:p-4">
+              <div className="mb-3 flex items-center justify-between gap-2">
+                <h3 className="text-sm font-extrabold text-white sm:text-base">Top 10 Teams</h3>
+                <span className="shrink-0 rounded-full border border-indigo-500/20 bg-indigo-500/10 px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-indigo-300">
                   {participants.length} players
                 </span>
               </div>
-
-              <div className="grid max-h-80 grid-cols-2 gap-1.5 overflow-y-auto sm:gap-2 xl:grid-cols-1">
-                {topParticipants.length === 0 ? (
-                  <div className="text-xs text-slate-500 italic py-6 text-center">No score yet</div>
+              <div className="grid max-h-80 grid-cols-2 gap-1.5 overflow-y-auto sm:gap-2 xl:max-h-[calc(100vh-230px)] xl:grid-cols-1">
+                {topTenParticipants.length === 0 ? (
+                  <div className="col-span-full py-6 text-center text-xs italic text-slate-500">No scores yet</div>
                 ) : (
-                  topParticipants.map((p, idx) => (
-                    <div key={p.participantId} className="flex items-center justify-between rounded-lg border border-slate-800 bg-slate-950/70 px-2 py-1.5 min-w-0">
-                      <div className="flex items-center gap-1.5 min-w-0">
-                        <span className={`flex h-5 w-5 items-center justify-center rounded-md text-[9px] font-black shrink-0 ${idx === 0 ? 'bg-amber-500 text-slate-950' : idx === 1 ? 'bg-slate-300 text-slate-950' : idx === 2 ? 'bg-orange-700 text-white' : 'bg-slate-800 text-slate-300'}`}>
+                  topTenParticipants.map((p, idx) => (
+                    <div key={p.participantId} className="flex min-w-0 items-center justify-between gap-1 rounded-lg border border-slate-800 bg-slate-950/70 px-2 py-1.5">
+                      <div className="flex min-w-0 items-center gap-1.5">
+                        <span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-md text-[9px] font-black ${idx === 0 ? 'bg-amber-500 text-slate-950' : idx === 1 ? 'bg-slate-300 text-slate-950' : idx === 2 ? 'bg-orange-700 text-white' : 'bg-slate-800 text-slate-300'}`}>
                           {idx + 1}
                         </span>
                         <div className="min-w-0">
@@ -422,12 +369,64 @@ export const HostGameScreen: React.FC<HostGameScreenProps> = ({ game, quiz, setC
                           <div className="text-[9px] text-slate-400">{p.correctAnswers} correct</div>
                         </div>
                       </div>
-                      <div className="ml-1 text-xs font-black text-indigo-400">{p.score} pts</div>
+                      <div className="ml-1 shrink-0 text-xs font-black text-indigo-400">{p.score} pts</div>
                     </div>
                   ))
                 )}
               </div>
             </aside>
+
+            <section className="min-w-0 overflow-hidden rounded-xl bg-slate-100 text-slate-900 shadow-2xl sm:rounded-2xl">
+              <header className="border-b border-slate-200 bg-white px-3 py-3 text-center sm:px-5">
+                <h2 className="break-words text-sm font-extrabold sm:text-lg">{currentQuiz.title}... {currentQuestion.text}</h2>
+              </header>
+
+              <div className={`grid items-center gap-2 p-2 sm:gap-4 sm:p-4 ${currentQuestion.mediaUrl || currentQuestion.imageUrl ? 'min-h-48 grid-cols-[52px_minmax(0,1fr)_64px] sm:min-h-64 sm:grid-cols-[80px_minmax(0,1fr)_100px]' : 'min-h-20 grid-cols-[52px_minmax(0,1fr)_64px] sm:min-h-24 sm:grid-cols-[80px_minmax(0,1fr)_100px]'}`}>
+                <div className="flex aspect-square items-center justify-center rounded-full bg-violet-600 text-lg font-black text-white shadow-lg sm:text-2xl">
+                  <Clock className="mr-1 h-4 w-4 sm:h-5 sm:w-5" />{timeLeft}
+                </div>
+
+                {(currentQuestion.mediaUrl || currentQuestion.imageUrl) && (
+                  <div className="flex min-h-40 items-center justify-center overflow-hidden bg-white sm:min-h-56">
+                    {currentQuestion.mediaType === 'video' ? (
+                      <video src={currentQuestion.mediaUrl || currentQuestion.imageUrl} controls className="max-h-[38vh] max-w-full object-contain" />
+                    ) : (
+                      <img src={currentQuestion.mediaUrl || currentQuestion.imageUrl} alt="Question visual" className="max-h-[38vh] max-w-full object-contain" />
+                    )}
+                  </div>
+                )}
+
+                <div className={`text-center ${(currentQuestion.mediaUrl || currentQuestion.imageUrl) ? '' : 'col-start-3'}`}>
+                  <span className="block text-2xl font-black tabular-nums sm:text-3xl">{currentQuestionResponses.length}</span>
+                  <span className="text-xs font-bold sm:text-sm">Answers</span>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-1.5 p-1.5 sm:gap-2 sm:p-2">
+                {currentQuestion.options.map((opt, optIdx) => {
+                  const colors = ['bg-rose-600', 'bg-blue-600', 'bg-amber-500', 'bg-emerald-600'];
+                  const shapes = [Triangle, Diamond, Circle, Square];
+                  const Shape = shapes[optIdx % shapes.length];
+                  return (
+                    <div key={optIdx} className={`flex min-h-14 items-center gap-2 p-2.5 text-white sm:min-h-16 sm:gap-4 sm:px-5 ${colors[optIdx % colors.length]}`}>
+                      <Shape className="h-7 w-7 shrink-0 fill-current sm:h-9 sm:w-9" aria-hidden="true" />
+                      <span className="break-words text-sm font-extrabold sm:text-base">{opt}</span>
+                    </div>
+                  );
+                })}
+              </div>
+
+              <footer className="flex flex-wrap items-center justify-between gap-2 bg-white px-3 py-2.5 sm:px-4">
+                <span className="text-xs font-semibold text-slate-500">Question {activeGame.currentQuestionIndex + 1} of {currentQuiz.questions.length} · {currentQuestionResponses.length}/{participants.length} answered</span>
+                <button
+                  disabled={isRevealing}
+                  onClick={handleShowResults}
+                  className="rounded-md bg-sky-500 px-4 py-2 text-xs font-bold text-white hover:bg-sky-600 disabled:opacity-60 sm:text-sm"
+                >
+                  {isRevealing ? 'Revealing Results...' : 'Skip Timer & Show Results'}
+                </button>
+              </footer>
+            </section>
           </div>
         )}
 

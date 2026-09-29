@@ -22,6 +22,7 @@ export const MyQuizzes: React.FC<MyQuizzesProps> = ({ currentUser, setCurrentPag
   const [settingsDraft, setSettingsDraft] = useState({
     showQuestionAndAnswersToParticipants: true,
     showMediaToParticipants: true,
+    folderOrder: 1,
   });
   const [addQuizFolderId, setAddQuizFolderId] = useState<string | null>(null);
   const [isStartingFolder, setIsStartingFolder] = useState(false);
@@ -32,9 +33,12 @@ export const MyQuizzes: React.FC<MyQuizzesProps> = ({ currentUser, setCurrentPag
     const matchesSearch = q.title.toLowerCase().includes(search.toLowerCase()) ||
       (q.stream || q.subject || '').toLowerCase().includes(search.toLowerCase());
     return matchesFolder && matchesSearch;
-  });
+  }).sort((first, second) => selectedFolderId === null
+    ? 0
+    : (first.folderOrder ?? Number.MAX_SAFE_INTEGER) - (second.folderOrder ?? Number.MAX_SAFE_INTEGER));
   const selectedFolderQuizzes = selectedFolderId
-    ? quizzes.filter(quiz => quiz.folderId === selectedFolderId)
+    ? quizzes.filter(quiz => quiz.folderId === selectedFolderId).sort((first, second) =>
+      (first.folderOrder ?? Number.MAX_SAFE_INTEGER) - (second.folderOrder ?? Number.MAX_SAFE_INTEGER))
     : [];
 
   const openCreateFolder = () => {
@@ -101,9 +105,17 @@ export const MyQuizzes: React.FC<MyQuizzesProps> = ({ currentUser, setCurrentPag
   };
 
   const assignQuizToFolder = async (quiz: Quiz, folderId: string) => {
+    const orderedFolderQuizzes = folderId
+      ? quizzes.filter(item => item.folderId === folderId && item.quizId !== quiz.quizId).sort((first, second) =>
+        (first.folderOrder ?? Number.MAX_SAFE_INTEGER) - (second.folderOrder ?? Number.MAX_SAFE_INTEGER))
+      : [];
+    const folderPositions = new Map(orderedFolderQuizzes.map((item, index) => [item.quizId, index + 1]));
+    if (folderId) folderPositions.set(quiz.quizId, orderedFolderQuizzes.length + 1);
     const updatedQuizzes = quizzes.map(item => item.quizId === quiz.quizId
-      ? { ...item, folderId: folderId || undefined }
-      : item);
+      ? { ...item, folderId: folderId || undefined, folderOrder: folderId ? folderPositions.get(item.quizId) : undefined }
+      : folderId && item.folderId === folderId
+        ? { ...item, folderOrder: folderPositions.get(item.quizId) }
+        : item);
     try {
       await StorageDB.saveQuizzes(updatedQuizzes);
       setQuizzes(updatedQuizzes);
@@ -167,24 +179,41 @@ export const MyQuizzes: React.FC<MyQuizzesProps> = ({ currentUser, setCurrentPag
 
   const openQuizSettings = (quiz: Quiz) => {
     setSettingsQuiz(quiz);
+    const folderQuizzes = quiz.folderId
+      ? quizzes.filter(item => item.folderId === quiz.folderId).sort((first, second) =>
+        (first.folderOrder ?? Number.MAX_SAFE_INTEGER) - (second.folderOrder ?? Number.MAX_SAFE_INTEGER))
+      : [];
     setSettingsDraft({
       showQuestionAndAnswersToParticipants: quiz.showQuestionAndAnswersToParticipants ?? true,
       showMediaToParticipants: quiz.showMediaToParticipants ?? true,
+      folderOrder: quiz.folderId ? Math.max(1, folderQuizzes.findIndex(item => item.quizId === quiz.quizId) + 1) : 1,
     });
   };
 
   const saveQuizSettings = async () => {
     if (!settingsQuiz) return;
     const allQuizzes = StorageDB.getQuizzes();
-    const updated = allQuizzes.map(q =>
-      q.quizId === settingsQuiz.quizId
-        ? {
-            ...q,
-            showQuestionAndAnswersToParticipants: settingsDraft.showQuestionAndAnswersToParticipants,
-            showMediaToParticipants: settingsDraft.showMediaToParticipants,
-          }
-        : q
-    );
+    const folderQuizzes = settingsQuiz.folderId
+      ? allQuizzes.filter(item => item.folderId === settingsQuiz.folderId).sort((first, second) =>
+        (first.folderOrder ?? Number.MAX_SAFE_INTEGER) - (second.folderOrder ?? Number.MAX_SAFE_INTEGER))
+      : [];
+    const reorderedFolderQuizzes = folderQuizzes.filter(item => item.quizId !== settingsQuiz.quizId);
+    const targetPosition = Math.max(0, Math.min(settingsDraft.folderOrder - 1, reorderedFolderQuizzes.length));
+    reorderedFolderQuizzes.splice(targetPosition, 0, settingsQuiz);
+    const folderPositions = new Map(reorderedFolderQuizzes.map((item, index) => [item.quizId, index + 1]));
+    const updated = allQuizzes.map(q => {
+      if (q.quizId === settingsQuiz.quizId) {
+        return {
+          ...q,
+          showQuestionAndAnswersToParticipants: settingsDraft.showQuestionAndAnswersToParticipants,
+          showMediaToParticipants: settingsDraft.showMediaToParticipants,
+          folderOrder: settingsQuiz.folderId ? folderPositions.get(q.quizId) : undefined,
+        };
+      }
+      return settingsQuiz.folderId && q.folderId === settingsQuiz.folderId
+        ? { ...q, folderOrder: folderPositions.get(q.quizId) }
+        : q;
+    });
     try {
       await StorageDB.saveQuizzes(updated);
       setQuizzes(updated);
@@ -421,6 +450,27 @@ export const MyQuizzes: React.FC<MyQuizzesProps> = ({ currentUser, setCurrentPag
                   className="h-4 w-4 rounded border-slate-700 bg-slate-900 text-indigo-600 focus:ring-indigo-500"
                 />
               </label>
+
+              {settingsQuiz.folderId ? (
+                <label className="flex items-center justify-between gap-4 rounded-xl border border-slate-800 bg-slate-950/60 p-3">
+                  <span>
+                    <span className="block text-sm font-semibold text-white">Live order preference</span>
+                    <span className="mt-1 block text-[11px] text-slate-400">Choose when this quiz plays in the folder session.</span>
+                  </span>
+                  <select
+                    value={settingsDraft.folderOrder}
+                    onChange={event => setSettingsDraft({ ...settingsDraft, folderOrder: Number(event.target.value) })}
+                    aria-label={`Live order for ${settingsQuiz.title}`}
+                    className="w-28 shrink-0 rounded-lg border border-slate-700 bg-slate-900 px-2 py-2 text-sm font-bold text-white focus:border-indigo-500 focus:outline-none"
+                  >
+                    {Array.from({ length: quizzes.filter(item => item.folderId === settingsQuiz.folderId).length }, (_, index) => index + 1).map(position => (
+                      <option key={position} value={position}>{position}{position === 1 ? 'st' : position === 2 ? 'nd' : position === 3 ? 'rd' : 'th'} quiz</option>
+                    ))}
+                  </select>
+                </label>
+              ) : (
+                <p className="rounded-xl border border-slate-800 bg-slate-950/60 p-3 text-xs text-slate-400">Add this quiz to a folder to set its live order.</p>
+              )}
             </div>
 
             <div className="mt-6 flex items-center justify-end gap-3">

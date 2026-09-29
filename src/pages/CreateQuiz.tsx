@@ -78,8 +78,7 @@ export const CreateQuiz: React.FC<CreateQuizProps> = ({ currentUser, setCurrentP
       options: ['London', 'Berlin', 'Paris', 'Madrid'],
       correctAnswer: 2, // Paris
       timerSeconds: 20,
-      difficulty: 'Easy',
-      imageUrl: 'https://images.unsplash.com/photo-1502602898657-3e91760cbb34?w=600'
+      difficulty: 'Easy'
     }
   ]);
 

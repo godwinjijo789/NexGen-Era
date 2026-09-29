@@ -1,0 +1,1 @@
+alter table public.quizzes add column if not exists folder_order integer;
