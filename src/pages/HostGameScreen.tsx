@@ -211,8 +211,6 @@ export const HostGameScreen: React.FC<HostGameScreenProps> = ({ game, quiz, setC
     }
   };
 
-  const currentQuestionResponses = responses.filter(r => r.gameId === activeGame.gameId && r.questionId === currentQuestion?.id);
-
   const copyJoinLink = async () => {
     if (!joinLink) return;
     try {
@@ -346,8 +344,8 @@ export const HostGameScreen: React.FC<HostGameScreenProps> = ({ game, quiz, setC
         )}
 
         {activeGame.status === 'question_active' && currentQuestion && (
-          <div className="mx-auto grid w-full max-w-7xl grid-cols-1 gap-3 sm:gap-5 xl:grid-cols-[280px_minmax(0,1fr)] xl:items-start">
-            <aside className="min-w-0 rounded-xl border border-slate-800 bg-slate-900/90 p-3 shadow-xl sm:rounded-2xl sm:p-4">
+          <div className="mx-auto grid w-full max-w-7xl grid-cols-1 gap-3 sm:gap-5 xl:grid-cols-[minmax(0,1fr)_280px] xl:items-start">
+            <aside className="order-2 min-w-0 rounded-xl border border-slate-800 bg-slate-900/90 p-3 shadow-xl sm:rounded-2xl sm:p-4 xl:order-none xl:col-start-2 xl:row-start-1">
               <div className="mb-3 flex items-center justify-between gap-2">
                 <h3 className="text-sm font-extrabold text-white sm:text-base">Top 10 Teams</h3>
                 <span className="shrink-0 rounded-full border border-indigo-500/20 bg-indigo-500/10 px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-indigo-300">
@@ -376,13 +374,13 @@ export const HostGameScreen: React.FC<HostGameScreenProps> = ({ game, quiz, setC
               </div>
             </aside>
 
-            <section className="min-w-0 overflow-hidden rounded-xl bg-slate-100 text-slate-900 shadow-2xl sm:rounded-2xl">
+            <section className="order-1 min-w-0 overflow-hidden rounded-xl bg-slate-100 text-slate-900 shadow-2xl sm:rounded-2xl xl:order-none xl:col-start-1 xl:row-start-1">
               <header className="border-b border-slate-200 bg-white px-3 py-3 text-center sm:px-5">
                 {currentQuiz.coverImage && <img src={currentQuiz.coverImage} alt={`${currentQuiz.title} cover`} className="mx-auto mb-2 max-h-16 max-w-full object-contain" />}
                 <h2 className="break-words text-sm font-extrabold sm:text-lg">{currentQuiz.title}... {currentQuestion.text}</h2>
               </header>
 
-              <div className={`grid items-center gap-2 p-2 sm:gap-4 sm:p-4 ${currentQuestion.mediaUrl || currentQuestion.imageUrl ? 'min-h-48 grid-cols-[52px_minmax(0,1fr)_64px] sm:min-h-64 sm:grid-cols-[80px_minmax(0,1fr)_100px]' : 'min-h-20 grid-cols-[52px_minmax(0,1fr)_64px] sm:min-h-24 sm:grid-cols-[80px_minmax(0,1fr)_100px]'}`}>
+              <div className={`grid items-center justify-items-center gap-2 p-2 sm:gap-4 sm:p-4 ${currentQuestion.mediaUrl || currentQuestion.imageUrl ? 'min-h-48 grid-cols-[52px_minmax(0,1fr)] sm:min-h-64 sm:grid-cols-[80px_minmax(0,1fr)]' : 'min-h-20 grid-cols-1 sm:min-h-24'}`}>
                 <div className="flex aspect-square items-center justify-center rounded-full bg-violet-600 text-lg font-black text-white shadow-lg sm:text-2xl">
                   <Clock className="mr-1 h-4 w-4 sm:h-5 sm:w-5" />{timeLeft}
                 </div>
@@ -397,10 +395,6 @@ export const HostGameScreen: React.FC<HostGameScreenProps> = ({ game, quiz, setC
                   </div>
                 )}
 
-                <div className={`text-center ${(currentQuestion.mediaUrl || currentQuestion.imageUrl) ? '' : 'col-start-3'}`}>
-                  <span className="block text-2xl font-black tabular-nums sm:text-3xl">{currentQuestionResponses.length}</span>
-                  <span className="text-xs font-bold sm:text-sm">Answers</span>
-                </div>
               </div>
 
               <div className="grid grid-cols-2 gap-1.5 p-1.5 sm:gap-2 sm:p-2">
@@ -418,7 +412,7 @@ export const HostGameScreen: React.FC<HostGameScreenProps> = ({ game, quiz, setC
               </div>
 
               <footer className="flex flex-wrap items-center justify-between gap-2 bg-white px-3 py-2.5 sm:px-4">
-                <span className="text-xs font-semibold text-slate-500">Question {activeGame.currentQuestionIndex + 1} of {currentQuiz.questions.length} · {currentQuestionResponses.length}/{participants.length} answered</span>
+                <span className="text-xs font-semibold text-slate-500">Question {activeGame.currentQuestionIndex + 1} of {currentQuiz.questions.length}</span>
                 <button
                   disabled={isRevealing}
                   onClick={handleShowResults}
