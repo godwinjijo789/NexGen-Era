@@ -314,8 +314,13 @@ export const StorageDB = {
   async saveQuizzes(nextQuizzes: Quiz[]) {
     const previousIds = new Set(quizzes.map(quiz => quiz.quizId));
     const nextIds = new Set(nextQuizzes.map(quiz => quiz.quizId));
-    if (nextQuizzes.length) {
-      const result = await supabase.from('quizzes').upsert(nextQuizzes.map(quizRow), { onConflict: 'quiz_id' });
+    const previousQuizzesById = new Map(quizzes.map(quiz => [quiz.quizId, quiz]));
+    const changedQuizzes = nextQuizzes.filter(quiz => {
+      const previousQuiz = previousQuizzesById.get(quiz.quizId);
+      return !previousQuiz || JSON.stringify(quizRow(previousQuiz)) !== JSON.stringify(quizRow(quiz));
+    });
+    if (changedQuizzes.length) {
+      const result = await supabase.from('quizzes').upsert(changedQuizzes.map(quizRow), { onConflict: 'quiz_id' });
       if (result.error) throw new Error(result.error.message);
     }
     const removedIds = [...previousIds].filter(id => !nextIds.has(id));
