@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { PageId, User, Participant } from '../types';
 import { StorageDB, normalizeGamePin } from '../services/db';
 import { getSupabaseErrorMessage } from '../lib/supabase';
@@ -35,6 +35,8 @@ export const JoinGame: React.FC<JoinGameProps> = ({ currentUser, setCurrentPage,
   const [nickname, setNickname] = useState(currentUser?.name || '');
   const [selectedAvatar, setSelectedAvatar] = useState(PRESET_AVATARS[0]);
   const [error, setError] = useState('');
+  const [isJoining, setIsJoining] = useState(false);
+  const joinInProgress = useRef(false);
 
   useEffect(() => {
     const pinFromUrl = extractJoinPinFromUrl(window.location.search || window.location.href);
@@ -45,6 +47,8 @@ export const JoinGame: React.FC<JoinGameProps> = ({ currentUser, setCurrentPage,
 
   const handleJoin = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (joinInProgress.current) return;
+
     const normalizedPin = normalizeGamePin(gamePin);
 
     if (!/^\d{6}$/.test(normalizedPin) || !nickname.trim()) {
@@ -52,12 +56,18 @@ export const JoinGame: React.FC<JoinGameProps> = ({ currentUser, setCurrentPage,
       return;
     }
 
+    joinInProgress.current = true;
+    setIsJoining(true);
+    setError('');
     try {
       const { participant } = await StorageDB.joinGame(normalizedPin, nickname, selectedAvatar);
       onJoinedGame(participant);
       setCurrentPage('student_waiting_room');
     } catch (error) {
       setError(getSupabaseErrorMessage(error, 'Unable to join this game. Check the PIN and try again.'));
+    } finally {
+      joinInProgress.current = false;
+      setIsJoining(false);
     }
   };
 
@@ -131,10 +141,11 @@ export const JoinGame: React.FC<JoinGameProps> = ({ currentUser, setCurrentPage,
 
           <button
             type="submit"
-            className="w-full py-4 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-600 hover:opacity-95 font-extrabold text-white text-lg shadow-xl shadow-emerald-500/25 transition-all flex items-center justify-center space-x-2 mt-2"
+            disabled={isJoining}
+            className="w-full py-4 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-600 hover:opacity-95 font-extrabold text-white text-lg shadow-xl shadow-emerald-500/25 transition-all flex items-center justify-center space-x-2 mt-2 disabled:cursor-not-allowed disabled:opacity-60"
           >
-            <span>Enter Lobby</span>
-            <ArrowRight className="w-5 h-5" />
+            <span>{isJoining ? 'Joining...' : 'Enter Lobby'}</span>
+            {!isJoining && <ArrowRight className="w-5 h-5" />}
           </button>
         </form>
       </div>
