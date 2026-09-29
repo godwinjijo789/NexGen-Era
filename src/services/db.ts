@@ -367,12 +367,27 @@ export const StorageDB = {
       if (previousQuiz.folderOrder !== quiz.folderOrder) {
         update.folder_order = quiz.folderOrder ?? null;
       }
-      return supabase.from('quizzes').update(update).eq('quiz_id', quiz.quizId);
+      return supabase.from('quizzes').update(update).eq('quiz_id', quiz.quizId)
+        .select('quiz_id, show_question_and_answers_to_participants, show_media_to_participants, folder_order')
+        .single();
     }));
     const failedResult = results.find(result => result.error);
     if (failedResult?.error) throw new Error(failedResult.error.message);
 
-    quizzes = nextQuizzes.filter(quiz => !quiz.isArchived);
+    const persistedRows = results.map(result => {
+      if (!result.data) throw new Error('Quiz settings were not returned after saving. Please retry.');
+      return result.data;
+    });
+    const persistedSettings = new Map(persistedRows.map(row => [row.quiz_id, row]));
+    quizzes = nextQuizzes.filter(quiz => !quiz.isArchived).map(quiz => {
+      const persisted = persistedSettings.get(quiz.quizId);
+      return persisted ? {
+        ...quiz,
+        showQuestionAndAnswersToParticipants: persisted.show_question_and_answers_to_participants,
+        showMediaToParticipants: persisted.show_media_to_participants,
+        folderOrder: persisted.folder_order ?? undefined,
+      } : quiz;
+    });
     emit({ type: 'QUIZZES_UPDATED' });
   },
 
