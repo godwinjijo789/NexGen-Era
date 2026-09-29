@@ -474,8 +474,8 @@ export const HostGameScreen: React.FC<HostGameScreenProps> = ({ game, quiz, setC
               )}
 
               <div className="mx-auto max-h-80 max-w-xl space-y-2 overflow-y-auto pt-2 text-left sm:space-y-3 sm:pt-4">
-                <h4 className="text-[11px] sm:text-xs font-semibold uppercase tracking-wider text-slate-400">Top 10 Teams · Total Points</h4>
-                {topTenParticipants.map((p, idx) => (
+                <h4 className="text-[11px] sm:text-xs font-semibold uppercase tracking-wider text-slate-400">All Teams · Total Points</h4>
+                {topParticipants.map((p, idx) => (
                   <div key={p.participantId} className="flex items-center justify-between p-3 sm:p-3.5 rounded-xl bg-slate-950/80 border border-slate-800">
                     <div className="flex items-center space-x-2.5 sm:space-x-3 truncate">
                       <span className={`w-5 h-5 sm:w-6 sm:h-6 rounded-lg font-bold text-xs flex items-center justify-center shrink-0 ${
