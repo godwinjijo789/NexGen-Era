@@ -78,7 +78,7 @@ export const HostGameScreen: React.FC<HostGameScreenProps> = ({ game, quiz, setC
     if (activeGame?.status === 'question_active' && currentQuestion) {
       const deadline = (activeGame.questionStartTime || StorageDB.getSynchronizedNow()) + currentQuestion.timerSeconds * 1000;
       const updateTimeLeft = () => {
-        const remaining = Math.max(0, deadline - Date.now());
+        const remaining = Math.max(0, deadline - StorageDB.getSynchronizedNow());
         setTimeLeft(Math.ceil(remaining / 1000));
       };
 
@@ -87,7 +87,7 @@ export const HostGameScreen: React.FC<HostGameScreenProps> = ({ game, quiz, setC
       const finishTimer = window.setTimeout(() => {
         setTimeLeft(0);
         void handleShowResults();
-      }, Math.max(0, deadline - Date.now()));
+      }, Math.max(0, deadline - StorageDB.getSynchronizedNow()));
 
       return () => {
         window.clearInterval(displayTimer);

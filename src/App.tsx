@@ -114,7 +114,7 @@ export default function App() {
       />
 
       <main className="flex-1">
-        {realtimeError && <div role="status" className="border-b border-amber-500/30 bg-amber-500/10 px-4 py-2 text-center text-sm text-amber-200">Live updates are temporarily unavailable. Reconnect or refresh to restore synchronization.</div>}
+        {realtimeError && <div role="status" className="border-b border-amber-500/30 bg-amber-500/10 px-4 py-2 text-center text-sm text-amber-200">Realtime is temporarily unavailable. Game state is syncing automatically until the connection recovers.</div>}
         {currentPage === 'landing' && <LandingPage setCurrentPage={setCurrentPage} currentUser={currentUser} />}
         {currentPage === 'login' && <LoginPage setCurrentPage={setCurrentPage} onLogin={handleLogin} />}
         {currentPage === 'register' && <RegisterPage setCurrentPage={setCurrentPage} onLogin={handleLogin} />}

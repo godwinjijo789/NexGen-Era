@@ -15,7 +15,11 @@ let responses: Response[] = [];
 let history: GameHistoryRecord[] = [];
 let serverClockOffset = 0;
 const listeners = new Set<(event: any) => void>();
-const gameChannels = new Map<string, { channel: ReturnType<typeof supabase.channel>; watchers: number }>();
+const gameChannels = new Map<string, {
+  channel: ReturnType<typeof supabase.channel>;
+  watchers: number;
+  fallbackTimer?: ReturnType<typeof setInterval>;
+}>();
 let gameLoadSequence = 0;
 
 const emit = (event: any) => listeners.forEach(listener => listener(event));
@@ -23,7 +27,10 @@ const emit = (event: any) => listeners.forEach(listener => listener(event));
 const getGameChannel = (gameId: string) => {
   const existing = gameChannels.get(gameId);
   if (existing) return existing;
-  const registration = { channel: supabase.channel(`game-${gameId}`), watchers: 0 };
+  const registration: NonNullable<ReturnType<typeof gameChannels.get>> = {
+    channel: supabase.channel(`game-${gameId}`),
+    watchers: 0,
+  };
   gameChannels.set(gameId, registration);
   return registration;
 };
@@ -572,14 +579,26 @@ export const StorageDB = {
   watchGame(gameId: string) {
     const registration = getGameChannel(gameId);
     registration.watchers += 1;
+    const refresh = () => {
+      void this.refreshSharedState().catch(error => {
+        console.error('[Realtime] Unable to refresh game state:', { gameId, error });
+        emit({ type: 'REALTIME_ERROR' });
+        if (typeof window !== 'undefined') window.dispatchEvent(new Event('supabase_realtime_error'));
+      });
+    };
     if (registration.watchers === 1) {
       const channel = registration.channel;
-      const refresh = () => {
-        void this.refreshSharedState().catch(error => {
-          console.error('[Realtime] Unable to refresh game state:', { gameId, error });
-          emit({ type: 'REALTIME_ERROR' });
-          if (typeof window !== 'undefined') window.dispatchEvent(new Event('supabase_realtime_error'));
-        });
+      const startFallbackSync = () => {
+        if (!registration.fallbackTimer) {
+          refresh();
+          registration.fallbackTimer = setInterval(refresh, 2000);
+        }
+      };
+      const stopFallbackSync = () => {
+        if (registration.fallbackTimer) {
+          clearInterval(registration.fallbackTimer);
+          registration.fallbackTimer = undefined;
+        }
       };
 
       channel
@@ -621,9 +640,11 @@ export const StorageDB = {
       .subscribe(status => {
         if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
           console.error('[Realtime] Game subscription error:', { gameId, status });
+          startFallbackSync();
           emit({ type: 'REALTIME_ERROR' });
           if (typeof window !== 'undefined') window.dispatchEvent(new Event('supabase_realtime_error'));
         } else if (status === 'SUBSCRIBED' && typeof window !== 'undefined') {
+          stopFallbackSync();
           window.dispatchEvent(new Event('supabase_realtime_restored'));
         }
       });
@@ -636,6 +657,7 @@ export const StorageDB = {
       registration.watchers -= 1;
       if (registration.watchers === 0 && gameChannels.get(gameId) === registration) {
         gameChannels.delete(gameId);
+        if (registration.fallbackTimer) clearInterval(registration.fallbackTimer);
         void supabase.removeChannel(registration.channel);
       }
     };

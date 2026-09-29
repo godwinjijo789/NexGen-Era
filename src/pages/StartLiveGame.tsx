@@ -14,6 +14,7 @@ interface StartLiveGameProps {
 export const StartLiveGame: React.FC<StartLiveGameProps> = ({ quiz, currentUser, setCurrentPage, onGameStarted }) => {
   const [randomizeQuestions, setRandomizeQuestions] = useState(false);
   const [error, setError] = useState('');
+  const [isLaunching, setIsLaunching] = useState(false);
 
   if (!quiz) {
     return (
@@ -34,12 +35,19 @@ export const StartLiveGame: React.FC<StartLiveGameProps> = ({ quiz, currentUser,
       return normalizeGamePin(digits);
     };
 
+    setIsLaunching(true);
+    setError('');
     try {
+      if (quiz.quizId.startsWith('folder_session_')) {
+        await StorageDB.saveFolderSessionQuiz(quiz);
+      }
       const newGame = await StorageDB.startGame(quiz, createGamePin());
       onGameStarted(newGame);
       setCurrentPage('host_game_screen');
     } catch (launchError) {
       setError(getSupabaseErrorMessage(launchError, 'Unable to start this game. Please try again.'));
+    } finally {
+      setIsLaunching(false);
     }
   };
 
@@ -100,10 +108,11 @@ export const StartLiveGame: React.FC<StartLiveGameProps> = ({ quiz, currentUser,
 
         <button
           onClick={handleLaunchGame}
+          disabled={isLaunching}
           className="w-full py-3.5 sm:py-4 rounded-xl sm:rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-600 text-white font-extrabold text-base sm:text-lg shadow-xl shadow-emerald-500/25 transition-all flex items-center justify-center space-x-2 active:scale-95"
         >
           <Play className="w-5 h-5 fill-current" />
-          <span>Launch Live Game Session</span>
+          <span>{isLaunching ? 'Starting Live Game...' : 'Launch Live Game Session'}</span>
         </button>
       </div>
     </div>

@@ -26,8 +26,6 @@ export const MyQuizzes: React.FC<MyQuizzesProps> = ({ currentUser, setCurrentPag
     separateScore: false,
   });
   const [addQuizFolderId, setAddQuizFolderId] = useState<string | null>(null);
-  const [isStartingFolder, setIsStartingFolder] = useState(false);
-  const [folderActionError, setFolderActionError] = useState('');
 
   const filteredQuizzes = quizzes.filter(q => {
     const matchesFolder = selectedFolderId === null || q.folderId === selectedFolderId;
@@ -125,13 +123,11 @@ export const MyQuizzes: React.FC<MyQuizzesProps> = ({ currentUser, setCurrentPag
     }
   };
 
-  const startSelectedFolder = async () => {
+  const startSelectedFolder = () => {
     const folder = folders.find(item => item.folderId === selectedFolderId);
     const folderQuizzes = selectedFolderQuizzes;
     if (!folder || folderQuizzes.length === 0 || !currentUser) return;
 
-    setIsStartingFolder(true);
-    setFolderActionError('');
     const combinedQuiz: Quiz = {
       quizId: `folder_session_${Date.now()}`,
       hostId: currentUser.userId,
@@ -151,15 +147,8 @@ export const MyQuizzes: React.FC<MyQuizzesProps> = ({ currentUser, setCurrentPag
       createdAt: new Date().toISOString(),
     };
 
-    try {
-      await StorageDB.saveFolderSessionQuiz(combinedQuiz);
-      onSelectQuiz(combinedQuiz);
-      setCurrentPage('start_live_game');
-    } catch (error) {
-      setFolderActionError(error instanceof Error ? error.message : 'Unable to prepare this folder session. Please try again.');
-    } finally {
-      setIsStartingFolder(false);
-    }
+    onSelectQuiz(combinedQuiz);
+    setCurrentPage('start_live_game');
   };
 
   const handleDelete = async (quizId: string) => {
@@ -320,17 +309,16 @@ export const MyQuizzes: React.FC<MyQuizzesProps> = ({ currentUser, setCurrentPag
               </button>
               <button
                 type="button"
-                disabled={isStartingFolder || selectedFolderQuizzes.length === 0}
-                onClick={() => void startSelectedFolder()}
+                disabled={selectedFolderQuizzes.length === 0}
+                onClick={startSelectedFolder}
                 className="inline-flex items-center justify-center gap-2 rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-bold text-white hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 <Play className="h-4 w-4 fill-current" />
-                {isStartingFolder ? 'Preparing...' : `Start Live Quiz (${selectedFolderQuizzes.length})`}
+                {`Start Live Quiz (${selectedFolderQuizzes.length})`}
               </button>
             </div>
           </div>
         )}
-        {folderActionError && <p role="alert" className="mb-5 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-300">{folderActionError}</p>}
 
         {/* Quiz Cards Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
