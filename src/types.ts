@@ -30,6 +30,7 @@ export interface Quiz {
   quizId: string;
   hostId: string;
   folderId?: string;
+  isArchived?: boolean;
   title: string;
   description?: string;
   stream: string;

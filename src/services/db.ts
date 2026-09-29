@@ -56,6 +56,7 @@ const toQuiz = (row: Row): Quiz => ({
   quizId: row.quiz_id,
   hostId: row.host_id,
   folderId: row.folder_id || undefined,
+  isArchived: row.is_archived || false,
   title: row.title,
   description: row.description || undefined,
   stream: row.stream,
@@ -135,6 +136,7 @@ const quizRow = (quiz: Quiz) => ({
   quiz_id: quiz.quizId,
   host_id: quiz.hostId,
   folder_id: quiz.folderId || null,
+  is_archived: quiz.isArchived ?? false,
   title: quiz.title,
   description: quiz.description || null,
   stream: quiz.stream || quiz.subject || 'General',
@@ -328,8 +330,13 @@ export const StorageDB = {
         if (deleteResult.error) throw new Error(deleteResult.error.message);
       }
     }
-    quizzes = nextQuizzes;
+    quizzes = nextQuizzes.filter(quiz => !quiz.isArchived);
     emit({ type: 'QUIZZES_UPDATED' });
+  },
+
+  async saveFolderSessionQuiz(quiz: Quiz) {
+    const result = await supabase.from('quizzes').insert(quizRow({ ...quiz, isArchived: true })).select('*').single();
+    return toQuiz(requireSuccess(result) as Row);
   },
 
   async saveFolders(nextFolders: QuizFolder[]) {

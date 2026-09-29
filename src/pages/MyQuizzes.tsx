@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { PageId, User, Quiz, QuizFolder } from '../types';
 import { StorageDB } from '../services/db';
-import { PlusCircle, Play, BookOpen, Trash2, Search, ArrowLeft, Settings2, Save, FolderPlus, Folder, Pencil } from 'lucide-react';
+import { PlusCircle, Play, BookOpen, Trash2, Search, ArrowLeft, Settings2, Save, FolderPlus, Folder, Pencil, X } from 'lucide-react';
 
 interface MyQuizzesProps {
   currentUser: User | null;
@@ -23,6 +23,9 @@ export const MyQuizzes: React.FC<MyQuizzesProps> = ({ currentUser, setCurrentPag
     showQuestionAndAnswersToParticipants: true,
     showMediaToParticipants: true,
   });
+  const [addQuizFolderId, setAddQuizFolderId] = useState<string | null>(null);
+  const [isStartingFolder, setIsStartingFolder] = useState(false);
+  const [folderActionError, setFolderActionError] = useState('');
 
   const filteredQuizzes = quizzes.filter(q => {
     const matchesFolder = selectedFolderId === null || q.folderId === selectedFolderId;
@@ -103,6 +106,42 @@ export const MyQuizzes: React.FC<MyQuizzesProps> = ({ currentUser, setCurrentPag
       setQuizzes(updatedQuizzes);
     } catch {
       window.alert('Unable to update quiz folder. Please try again.');
+    }
+  };
+
+  const startSelectedFolder = async () => {
+    const folder = folders.find(item => item.folderId === selectedFolderId);
+    const folderQuizzes = quizzes.filter(quiz => quiz.folderId === selectedFolderId);
+    if (!folder || folderQuizzes.length === 0 || !currentUser) return;
+
+    setIsStartingFolder(true);
+    setFolderActionError('');
+    const combinedQuiz: Quiz = {
+      quizId: `folder_session_${Date.now()}`,
+      hostId: currentUser.userId,
+      folderId: folder.folderId,
+      isArchived: true,
+      title: `${folder.name} Session`,
+      description: `Combined session containing ${folderQuizzes.length} quizzes.`,
+      stream: folder.name,
+      difficulty: folderQuizzes[0].difficulty,
+      showQuestionAndAnswersToParticipants: folderQuizzes.every(quiz => quiz.showQuestionAndAnswersToParticipants !== false),
+      showMediaToParticipants: folderQuizzes.every(quiz => quiz.showMediaToParticipants !== false),
+      questions: folderQuizzes.flatMap(quiz => quiz.questions.map(question => ({
+        ...question,
+        id: `${quiz.quizId}_${question.id}`,
+      }))),
+      createdAt: new Date().toISOString(),
+    };
+
+    try {
+      await StorageDB.saveFolderSessionQuiz(combinedQuiz);
+      onSelectQuiz(combinedQuiz);
+      setCurrentPage('start_live_game');
+    } catch (error) {
+      setFolderActionError(error instanceof Error ? error.message : 'Unable to prepare this folder session. Please try again.');
+    } finally {
+      setIsStartingFolder(false);
     }
   };
 
@@ -228,6 +267,35 @@ export const MyQuizzes: React.FC<MyQuizzesProps> = ({ currentUser, setCurrentPag
           ))}
         </div>
 
+        {selectedFolderId && (
+          <div className="mb-6 flex flex-col gap-3 rounded-xl border border-slate-800 bg-slate-900/60 p-4 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h2 className="font-bold text-white">{folders.find(folder => folder.folderId === selectedFolderId)?.name}</h2>
+              <p className="text-xs text-slate-400">{quizzes.filter(quiz => quiz.folderId === selectedFolderId).length} quizzes in this folder</p>
+            </div>
+            <div className="flex flex-col gap-2 sm:flex-row">
+              <button
+                type="button"
+                onClick={() => setAddQuizFolderId(selectedFolderId)}
+                className="inline-flex items-center justify-center gap-2 rounded-lg border border-slate-700 bg-slate-800 px-3.5 py-2.5 text-sm font-bold text-slate-200 hover:bg-slate-700"
+              >
+                <PlusCircle className="h-4 w-4" />
+                Add Quiz
+              </button>
+              <button
+                type="button"
+                disabled={isStartingFolder || quizzes.every(quiz => quiz.folderId !== selectedFolderId)}
+                onClick={() => void startSelectedFolder()}
+                className="inline-flex items-center justify-center gap-2 rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-bold text-white hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <Play className="h-4 w-4 fill-current" />
+                {isStartingFolder ? 'Preparing...' : 'Start Folder'}
+              </button>
+            </div>
+          </div>
+        )}
+        {folderActionError && <p role="alert" className="mb-5 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-300">{folderActionError}</p>}
+
         {/* Quiz Cards Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
           {filteredQuizzes.length === 0 ? (
@@ -272,16 +340,18 @@ export const MyQuizzes: React.FC<MyQuizzesProps> = ({ currentUser, setCurrentPag
                 </div>
 
                 <div className="space-y-2.5 pt-3.5 border-t border-slate-800/80">
-                  <button
-                    onClick={() => {
-                      onSelectQuiz(quiz);
-                      setCurrentPage('start_live_game');
-                    }}
-                    className="w-full py-2.5 sm:py-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs sm:text-sm shadow-md transition-all flex items-center justify-center space-x-1.5 active:scale-95"
-                  >
-                    <Play className="w-3.5 h-3.5 sm:w-4 sm:h-4 fill-current" />
-                    <span>Start Live Game</span>
-                  </button>
+                  {selectedFolderId === null && (
+                    <button
+                      onClick={() => {
+                        onSelectQuiz(quiz);
+                        setCurrentPage('start_live_game');
+                      }}
+                      className="w-full py-2.5 sm:py-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs sm:text-sm shadow-md transition-all flex items-center justify-center space-x-1.5 active:scale-95"
+                    >
+                      <Play className="w-3.5 h-3.5 sm:w-4 sm:h-4 fill-current" />
+                      <span>Start Live Game</span>
+                    </button>
+                  )}
 
                   <div className="flex items-center justify-between gap-2">
                     <button
@@ -405,6 +475,46 @@ export const MyQuizzes: React.FC<MyQuizzesProps> = ({ currentUser, setCurrentPag
               <button type="submit" className="rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-bold text-white">Save</button>
             </div>
           </form>
+        </div>
+      )}
+
+      {addQuizFolderId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 p-4 backdrop-blur-md">
+          <div className="w-full max-w-lg rounded-2xl border border-slate-800 bg-slate-900 p-5 shadow-2xl">
+            <div className="mb-4 flex items-start justify-between gap-4">
+              <div>
+                <h3 className="text-lg font-extrabold text-white">Add Quiz to Folder</h3>
+                <p className="mt-1 text-xs text-slate-400">Choose a quiz to move into {folders.find(folder => folder.folderId === addQuizFolderId)?.name}.</p>
+              </div>
+              <button type="button" onClick={() => setAddQuizFolderId(null)} className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-800 hover:text-white" aria-label="Close add quiz dialog">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <div className="max-h-80 space-y-2 overflow-y-auto">
+              {quizzes.filter(quiz => quiz.folderId !== addQuizFolderId).length === 0 ? (
+                <p className="py-8 text-center text-sm text-slate-400">All quizzes are already in this folder.</p>
+              ) : (
+                quizzes.filter(quiz => quiz.folderId !== addQuizFolderId).map(quiz => (
+                  <div key={quiz.quizId} className="flex items-center justify-between gap-3 rounded-lg border border-slate-800 bg-slate-950/70 px-3 py-2.5">
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-bold text-white">{quiz.title}</p>
+                      {quiz.folderId && <p className="text-[11px] text-slate-400">Currently in {folders.find(folder => folder.folderId === quiz.folderId)?.name || 'another folder'}</p>}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => void assignQuizToFolder(quiz, addQuizFolderId)}
+                      className="shrink-0 rounded-lg bg-indigo-600 px-3 py-2 text-xs font-bold text-white hover:bg-indigo-500"
+                    >
+                      Add
+                    </button>
+                  </div>
+                ))
+              )}
+            </div>
+            <div className="mt-4 flex justify-end">
+              <button type="button" onClick={() => setAddQuizFolderId(null)} className="rounded-lg bg-slate-800 px-4 py-2 text-sm font-bold text-slate-300 hover:bg-slate-700">Done</button>
+            </div>
+          </div>
         </div>
       )}
     </div>
