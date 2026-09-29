@@ -378,6 +378,7 @@ export const HostGameScreen: React.FC<HostGameScreenProps> = ({ game, quiz, setC
 
             <section className="min-w-0 overflow-hidden rounded-xl bg-slate-100 text-slate-900 shadow-2xl sm:rounded-2xl">
               <header className="border-b border-slate-200 bg-white px-3 py-3 text-center sm:px-5">
+                {currentQuiz.coverImage && <img src={currentQuiz.coverImage} alt={`${currentQuiz.title} cover`} className="mx-auto mb-2 max-h-16 max-w-full object-contain" />}
                 <h2 className="break-words text-sm font-extrabold sm:text-lg">{currentQuiz.title}... {currentQuestion.text}</h2>
               </header>
 

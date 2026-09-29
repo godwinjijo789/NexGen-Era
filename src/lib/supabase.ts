@@ -28,7 +28,7 @@ export const getSupabaseErrorMessage = (error: unknown, fallback: string): strin
   const message = typeof errorDetails.message === 'string' ? errorDetails.message.toLowerCase() : '';
   const code = typeof errorDetails.code === 'string' ? errorDetails.code : '';
   if (code === 'PGRST202' || message.includes('could not find the function')) {
-    return 'The Supabase results function is not installed yet. Apply the latest SQL migration in the Supabase SQL Editor.';
+    return 'A required Supabase function is missing. Apply all SQL migrations in supabase/migrations/ in filename order.';
   }
   if (code === '42501' || message.includes('only the game host')) {
     return 'Only the host account that started this game can reveal its results. Sign in to the original host account.';
@@ -44,6 +44,9 @@ export const getSupabaseErrorMessage = (error: unknown, fallback: string): strin
   }
   if (message.includes('anonymous') && (message.includes('disabled') || message.includes('not enabled'))) {
     return 'Guest joining is not enabled for this Supabase project. Enable Anonymous Sign-Ins under Authentication settings, then try again.';
+  }
+  if (code === 'over_request_rate_limit' || message.includes('rate limit') || message.includes('too many requests')) {
+    return 'Guest sign-ins are being rate-limited. Increase the anonymous sign-in limit in Supabase Auth settings or retry later.';
   }
   if (message.includes('duplicate') || message.includes('already')) {
     return 'That value is already in use. Please choose another.';

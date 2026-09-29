@@ -66,16 +66,13 @@ export const StudentQuestionScreen: React.FC<StudentQuestionScreenProps> = ({ pa
   // Countdown timer for participant view
   useEffect(() => {
     if (currentQuestion && activeGame?.status === 'question_active') {
-      const startedAt = activeGame.questionStartTime || StorageDB.getSynchronizedNow();
+      const deadline = (activeGame.questionStartTime || StorageDB.getSynchronizedNow()) + currentQuestion.timerSeconds * 1000;
       const updateTimeLeft = () => {
-        const elapsedSeconds = Math.floor((StorageDB.getSynchronizedNow() - startedAt) / 1000);
-        setTimeLeft(Math.max(0, currentQuestion.timerSeconds - elapsedSeconds));
+        setTimeLeft(Math.max(0, Math.ceil((deadline - StorageDB.getSynchronizedNow()) / 1000)));
       };
 
       updateTimeLeft();
-      const timer = setInterval(() => {
-        updateTimeLeft();
-      }, 1000);
+      const timer = window.setInterval(updateTimeLeft, 100);
       return () => clearInterval(timer);
     }
   }, [activeGame?.status, activeGame?.currentQuestionIndex, activeGame?.questionStartTime, currentQuestion?.id, currentQuestion?.timerSeconds]);
@@ -148,6 +145,7 @@ export const StudentQuestionScreen: React.FC<StudentQuestionScreenProps> = ({ pa
 
       {/* Main Question & Answer Buttons */}
       <div className="max-w-4xl mx-auto w-full py-4 sm:py-8 space-y-4 sm:space-y-6 text-center">
+        {currentQuiz?.coverImage && <img src={currentQuiz.coverImage} alt={`${currentQuiz.title} cover`} className="mx-auto max-h-16 max-w-full object-contain" />}
         {shouldShowFullQuestionToParticipants && (
           <h2 className="text-lg sm:text-2xl md:text-3xl font-black text-white leading-snug break-words px-1">
             {currentQuestion.text}

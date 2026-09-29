@@ -135,6 +135,7 @@ export const MyQuizzes: React.FC<MyQuizzesProps> = ({ currentUser, setCurrentPag
       isArchived: true,
       title: `${folder.name} Session`,
       description: `Combined session containing ${folderQuizzes.length} quizzes.`,
+      coverImage: folderQuizzes.find(quiz => quiz.coverImage)?.coverImage,
       stream: folder.name,
       difficulty: folderQuizzes[0].difficulty,
       showQuestionAndAnswersToParticipants: folderQuizzes.every(quiz => quiz.showQuestionAndAnswersToParticipants !== false),
