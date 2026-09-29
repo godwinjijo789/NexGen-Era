@@ -19,6 +19,7 @@ const gameChannels = new Map<string, {
   channel: ReturnType<typeof supabase.channel>;
   watchers: number;
   fallbackTimer?: ReturnType<typeof setInterval>;
+  refreshInProgress?: boolean;
 }>();
 let gameLoadSequence = 0;
 
@@ -193,12 +194,21 @@ async function loadGame(gameId: string) {
       : supabase.rpc('get_game_responses', { p_game_id: gameId }),
   ]);
   if (requestSequence !== gameLoadSequence) return;
+  const nextGame = toGame(gameRow, quiz);
+  const currentGame = activeGame?.gameId === gameId ? activeGame : null;
+  const statusOrder = { waiting: 0, question_active: 1, question_result: 2, leaderboard: 3, finished: 4 };
+  if (currentGame && (
+    (currentGame.updatedAt ?? 0) > (nextGame.updatedAt ?? 0) ||
+    (currentGame.currentQuestionIndex > nextGame.currentQuestionIndex) ||
+    (currentGame.currentQuestionIndex === nextGame.currentQuestionIndex &&
+      statusOrder[currentGame.status] > statusOrder[nextGame.status])
+  )) return;
   participants = (requireSuccess(participantResult) as Row[]).map(toParticipant);
   if (currentParticipant?.gameId === gameId) {
     currentParticipant = participants.find(item => item.participantId === currentParticipant?.participantId) || currentParticipant;
   }
   responses = (responseResult.error ? [] : responseResult.data as Row[]).map(toResponse);
-  activeGame = toGame(gameRow, quiz);
+  activeGame = nextGame;
   emit({ type: 'GAME_UPDATED', game: activeGame });
   emit({ type: 'PARTICIPANTS_UPDATED', participants });
   emit({ type: 'RESPONSES_UPDATED', responses });
@@ -597,18 +607,22 @@ export const StorageDB = {
     const registration = getGameChannel(gameId);
     registration.watchers += 1;
     const refresh = () => {
-      void this.refreshSharedState().catch(error => {
-        console.error('[Realtime] Unable to refresh game state:', { gameId, error });
-        emit({ type: 'REALTIME_ERROR' });
-        if (typeof window !== 'undefined') window.dispatchEvent(new Event('supabase_realtime_error'));
-      });
+      if (registration.refreshInProgress) return;
+      registration.refreshInProgress = true;
+      void this.refreshSharedState()
+        .catch(error => {
+          console.error('[Realtime] Unable to refresh game state:', { gameId, error });
+          emit({ type: 'REALTIME_ERROR' });
+          if (typeof window !== 'undefined') window.dispatchEvent(new Event('supabase_realtime_error'));
+        })
+        .finally(() => { registration.refreshInProgress = false; });
     };
     if (registration.watchers === 1) {
       const channel = registration.channel;
       const startFallbackSync = () => {
         if (!registration.fallbackTimer) {
           refresh();
-          registration.fallbackTimer = setInterval(refresh, 2000);
+          registration.fallbackTimer = setInterval(refresh, 1000);
         }
       };
       const stopFallbackSync = () => {
@@ -654,9 +668,9 @@ export const StorageDB = {
           emit({ type: 'PARTICIPANTS_UPDATED', participants });
         })
         .on('postgres_changes', { event: '*', schema: 'public', table: 'game_responses', filter: `game_id=eq.${gameId}` }, refresh)
-      .subscribe(status => {
+      .subscribe((status, error) => {
         if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
-          console.error('[Realtime] Game subscription error:', { gameId, status });
+          console.error('[Realtime] Game subscription error:', { gameId, status, error });
           startFallbackSync();
           emit({ type: 'REALTIME_ERROR' });
           if (typeof window !== 'undefined') window.dispatchEvent(new Event('supabase_realtime_error'));
