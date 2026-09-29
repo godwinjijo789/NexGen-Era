@@ -33,6 +33,9 @@ export const MyQuizzes: React.FC<MyQuizzesProps> = ({ currentUser, setCurrentPag
       (q.stream || q.subject || '').toLowerCase().includes(search.toLowerCase());
     return matchesFolder && matchesSearch;
   });
+  const selectedFolderQuizzes = selectedFolderId
+    ? quizzes.filter(quiz => quiz.folderId === selectedFolderId)
+    : [];
 
   const openCreateFolder = () => {
     setFolderName('');
@@ -111,7 +114,7 @@ export const MyQuizzes: React.FC<MyQuizzesProps> = ({ currentUser, setCurrentPag
 
   const startSelectedFolder = async () => {
     const folder = folders.find(item => item.folderId === selectedFolderId);
-    const folderQuizzes = quizzes.filter(quiz => quiz.folderId === selectedFolderId);
+    const folderQuizzes = selectedFolderQuizzes;
     if (!folder || folderQuizzes.length === 0 || !currentUser) return;
 
     setIsStartingFolder(true);
@@ -271,7 +274,7 @@ export const MyQuizzes: React.FC<MyQuizzesProps> = ({ currentUser, setCurrentPag
           <div className="mb-6 flex flex-col gap-3 rounded-xl border border-slate-800 bg-slate-900/60 p-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <h2 className="font-bold text-white">{folders.find(folder => folder.folderId === selectedFolderId)?.name}</h2>
-              <p className="text-xs text-slate-400">{quizzes.filter(quiz => quiz.folderId === selectedFolderId).length} quizzes in this folder</p>
+              <p className="text-xs text-slate-400">{selectedFolderQuizzes.length} quizzes · All play one after another in one live session</p>
             </div>
             <div className="flex flex-col gap-2 sm:flex-row">
               <button
@@ -284,12 +287,12 @@ export const MyQuizzes: React.FC<MyQuizzesProps> = ({ currentUser, setCurrentPag
               </button>
               <button
                 type="button"
-                disabled={isStartingFolder || quizzes.every(quiz => quiz.folderId !== selectedFolderId)}
+                disabled={isStartingFolder || selectedFolderQuizzes.length === 0}
                 onClick={() => void startSelectedFolder()}
                 className="inline-flex items-center justify-center gap-2 rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-bold text-white hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 <Play className="h-4 w-4 fill-current" />
-                {isStartingFolder ? 'Preparing...' : 'Start Live Quiz'}
+                {isStartingFolder ? 'Preparing...' : `Start Live Quiz (${selectedFolderQuizzes.length})`}
               </button>
             </div>
           </div>
