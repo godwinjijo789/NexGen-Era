@@ -60,6 +60,7 @@ export const StartLiveGame: React.FC<StartLiveGameProps> = ({ quiz, currentUser,
         </div>
 
         <div className="text-center space-y-2">
+          {quiz.coverImage && <img src={quiz.coverImage} alt={`${quiz.title} cover`} className="mx-auto mb-4 max-h-56 w-full rounded-xl object-cover" />}
           <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-2xl sm:rounded-3xl bg-gradient-to-tr from-indigo-600 to-purple-600 flex items-center justify-center mx-auto shadow-xl shadow-indigo-600/30 mb-3 sm:mb-4">
             <Zap className="w-6 h-6 sm:w-8 sm:h-8 text-white animate-pulse" />
           </div>

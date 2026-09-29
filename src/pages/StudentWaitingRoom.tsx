@@ -43,7 +43,11 @@ export const StudentWaitingRoom: React.FC<StudentWaitingRoomProps> = ({ particip
     <div className="min-h-screen bg-slate-950 text-white flex items-center justify-center px-3.5 sm:px-4 py-8 sm:py-12 relative overflow-hidden">
       <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[300px] sm:w-[500px] h-[300px] sm:h-[500px] bg-emerald-600/15 rounded-full blur-[80px] sm:blur-[100px] pointer-events-none"></div>
 
-      <div className="max-w-md w-full bg-slate-900/80 border border-slate-800 rounded-2xl sm:rounded-3xl p-5 sm:p-8 shadow-2xl backdrop-blur-xl relative z-10 text-center space-y-5 sm:space-y-6">
+        <div className="max-w-md w-full bg-slate-900/80 border border-slate-800 rounded-2xl sm:rounded-3xl p-5 sm:p-8 shadow-2xl backdrop-blur-xl relative z-10 text-center space-y-5 sm:space-y-6">
+        {activeGame?.quiz?.coverImage && (
+          <img src={activeGame.quiz.coverImage} alt={`${activeGame.quiz.title} cover`} className="max-h-52 w-full rounded-xl object-cover" />
+        )}
+
         <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl sm:rounded-3xl bg-gradient-to-tr from-emerald-500 to-teal-600 flex items-center justify-center mx-auto shadow-xl shadow-emerald-500/30 overflow-hidden">
           {participant?.avatar ? (
             <img src={participant.avatar} alt={participant.nickname} className="w-full h-full object-cover" />
@@ -54,7 +58,8 @@ export const StudentWaitingRoom: React.FC<StudentWaitingRoomProps> = ({ particip
 
         <div>
           <span className="text-[11px] sm:text-xs uppercase tracking-widest font-extrabold text-emerald-400">You're In, {participant?.nickname || 'Participant'}!</span>
-          <h2 className="text-2xl sm:text-3xl font-black mt-1">Waiting for Host...</h2>
+          <h2 className="mt-1 text-xl font-black sm:text-2xl">{activeGame?.quiz?.title || 'Quiz'} </h2>
+          <p className="text-base font-bold text-slate-300">Waiting for Host...</p>
           <p className="text-xs sm:text-sm text-slate-400 mt-1.5 sm:mt-2">The quiz will start as soon as your Event Co-Ordinator launches it.</p>
         </div>
 

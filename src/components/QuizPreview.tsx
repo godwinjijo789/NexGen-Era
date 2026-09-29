@@ -1,9 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { Question } from '../types';
-import { CheckCircle2, Clock, Users, X } from 'lucide-react';
+import { CheckCircle2, Circle, Clock, Diamond, Square, Triangle, Users, X } from 'lucide-react';
 
 interface QuizPreviewProps {
   title: string;
+  coverImage?: string;
   questions: Question[];
   onClose: () => void;
 }
@@ -16,10 +17,18 @@ const simulatedTeams = [
   { name: 'The Challengers', progress: 1, offset: 0 },
 ];
 
-export const QuizPreview: React.FC<QuizPreviewProps> = ({ title, questions, onClose }) => {
+const answerStyles = [
+  { background: 'bg-rose-600', shape: Triangle },
+  { background: 'bg-blue-600', shape: Diamond },
+  { background: 'bg-amber-500', shape: Circle },
+  { background: 'bg-emerald-600', shape: Square },
+];
+
+export const QuizPreview: React.FC<QuizPreviewProps> = ({ title, coverImage, questions, onClose }) => {
   const [questionIndex, setQuestionIndex] = useState(0);
   const [timeLeft, setTimeLeft] = useState(Math.max(1, questions[0]?.timerSeconds || 20));
   const [isComplete, setIsComplete] = useState(false);
+  const [hasStarted, setHasStarted] = useState(false);
   const question = questions[questionIndex] || questions[0];
   const duration = Math.max(1, question?.timerSeconds || 20);
   const elapsed = duration - timeLeft;
@@ -32,12 +41,12 @@ export const QuizPreview: React.FC<QuizPreviewProps> = ({ title, questions, onCl
   }));
 
   useEffect(() => {
-    if (!question || isComplete) return;
+    if (!question || isComplete || !hasStarted) return;
     const countdown = window.setInterval(() => {
       setTimeLeft(current => Math.max(0, current - 1));
     }, 1000);
     return () => window.clearInterval(countdown);
-  }, [question?.id, isComplete]);
+  }, [question?.id, isComplete, hasStarted]);
 
   useEffect(() => {
     if (timeLeft === 0 && question) setIsComplete(true);
@@ -51,86 +60,102 @@ export const QuizPreview: React.FC<QuizPreviewProps> = ({ title, questions, onCl
     setIsComplete(false);
   };
 
-  if (!question) return null;
-
-  return (
-    <div className="fixed inset-0 z-[60] overflow-y-auto bg-slate-950/95 p-3 text-white backdrop-blur-md sm:p-6" role="dialog" aria-modal="true" aria-label="Quiz preview">
-      <div className="mx-auto flex min-h-full max-w-6xl flex-col justify-center py-4">
-        <div className="mb-3 flex items-center justify-between gap-3">
-          <div className="min-w-0">
-            <p className="text-[10px] font-bold uppercase tracking-wider text-indigo-300">Quiz Preview</p>
-            <h2 className="truncate text-base font-extrabold sm:text-xl">{title || 'Untitled Quiz'}</h2>
-          </div>
-          <button type="button" onClick={onClose} className="rounded-lg border border-slate-700 bg-slate-900 p-2 text-slate-300 hover:text-white" aria-label="Close preview">
-            <X className="h-5 w-5" />
-          </button>
-        </div>
-
-        <div className="grid gap-3 xl:grid-cols-[minmax(0,1fr)_320px]">
-          <main className="space-y-3 rounded-xl border border-slate-800 bg-slate-900/80 p-4 sm:p-6">
-            <div className="flex items-center justify-between gap-3">
-              <span className="text-xs font-bold text-indigo-300">Question {questionIndex + 1} of {questions.length}</span>
-              <span className={`inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1 text-sm font-black ${timeLeft <= 5 ? 'border-red-500/40 bg-red-500/10 text-red-300' : 'border-indigo-500/30 bg-indigo-500/10 text-indigo-300'}`}>
-                <Clock className="h-4 w-4" /> {timeLeft}s
-              </span>
-            </div>
-
-            <div className="h-1.5 overflow-hidden rounded-full bg-slate-800">
-              <div className={`h-full transition-[width] duration-1000 ${timeLeft <= 5 ? 'bg-red-500' : 'bg-indigo-500'}`} style={{ width: `${(timeLeft / duration) * 100}%` }} />
-            </div>
-
-            <h3 className="text-lg font-extrabold leading-snug sm:text-2xl">{question.text || 'Question text will appear here'}</h3>
-
-            {(question.mediaUrl || question.imageUrl) && (
-              question.mediaType === 'video' ? (
-                <video src={question.mediaUrl || question.imageUrl} controls className="mx-auto max-h-48 max-w-full rounded-lg" />
-              ) : (
-                <img src={question.mediaUrl || question.imageUrl} alt="Question preview" className="mx-auto max-h-48 max-w-full rounded-lg object-contain" />
-              )
-            )}
-
-            <div className="grid gap-2 sm:grid-cols-2">
-              {options.map((option, index) => (
-                <div key={`${index}-${option}`} className={`flex min-h-12 items-center gap-3 rounded-lg border p-3 text-sm font-semibold ${isComplete && index === question.correctAnswer ? 'border-emerald-500/50 bg-emerald-500/10 text-emerald-200' : 'border-slate-700 bg-slate-950/70 text-slate-200'}`}>
-                  <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-slate-800 text-xs font-black">{letters[index]}</span>
-                  <span className="break-words">{option || `Option ${letters[index]}`}</span>
-                  {isComplete && index === question.correctAnswer && <CheckCircle2 className="ml-auto h-4 w-4 shrink-0 text-emerald-400" />}
-                </div>
-              ))}
-            </div>
-
-            {isComplete && <p className="text-sm font-bold text-emerald-300">Time is up. Correct answer: {options[question.correctAnswer] || 'Not selected'}</p>}
-          </main>
-
-          <aside className="space-y-3 rounded-xl border border-slate-800 bg-slate-900/80 p-4 sm:p-5">
-            <div className="flex items-center justify-between gap-2">
-              <h3 className="text-sm font-extrabold">Teams answering</h3>
-              <span className="inline-flex items-center gap-1 text-xs font-bold text-slate-400"><Users className="h-3.5 w-3.5" /> {answeredTeams.filter(team => team.hasAnswered).length}/{simulatedTeams.length}</span>
-            </div>
-            <div className="space-y-2">
-              {answeredTeams.map((team, index) => (
-                <div key={team.name} className="flex items-center justify-between gap-2 rounded-lg border border-slate-800 bg-slate-950/70 px-3 py-2">
-                  <span className="truncate text-xs font-bold text-white">{team.name}</span>
-                  <span className={`shrink-0 text-[10px] font-semibold ${team.hasAnswered ? 'text-emerald-300' : 'text-slate-500'}`}>
-                    {team.hasAnswered ? `Answered · ${letters[team.answerIndex]}` : 'Thinking...'}
-                    {isComplete && team.hasAnswered && team.answerIndex === question.correctAnswer ? ' · Correct' : ''}
-                  </span>
-                </div>
-              ))}
-            </div>
-            <p className="border-t border-slate-800 pt-3 text-[11px] text-slate-400">Preview only. Simulated answers and timer are not saved to game history.</p>
-            {isComplete && (
-              <button
-                type="button"
-                onClick={() => moveToQuestion(questionIndex + 1 < questions.length ? questionIndex + 1 : 0)}
-                className="w-full rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-bold text-white hover:bg-indigo-500"
-              >
-                {questionIndex + 1 < questions.length ? 'Next Question' : 'Restart Preview'}
-              </button>
-            )}
-          </aside>
+  if (!question) {
+    return (
+      <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-950 p-4 text-white" role="dialog" aria-modal="true" aria-label="Quiz preview">
+        <div className="text-center">
+          <p className="mb-4 text-slate-300">Add a question to preview this quiz.</p>
+          <button type="button" onClick={onClose} className="rounded-lg bg-indigo-600 px-4 py-2 font-bold">Close</button>
         </div>
       </div>
+    );
+  }
+
+  if (!hasStarted) {
+    return (
+      <div className="fixed inset-0 z-[60] overflow-y-auto bg-slate-950 p-4 text-white sm:p-8" role="dialog" aria-modal="true" aria-label="Quiz preview">
+        <button type="button" onClick={onClose} className="absolute right-4 top-4 rounded-lg border border-slate-700 bg-slate-900 p-2 text-slate-300 hover:text-white sm:right-8 sm:top-8" aria-label="Close preview">
+          <X className="h-5 w-5" />
+        </button>
+        <div className="mx-auto flex min-h-[calc(100dvh-2rem)] max-w-4xl flex-col items-center justify-center gap-6 py-12 text-center">
+          {coverImage ? (
+            <img src={coverImage} alt={`${title || 'Quiz'} cover`} className="max-h-[55vh] w-full rounded-lg object-cover shadow-2xl" />
+          ) : (
+            <div className="flex aspect-video max-h-[45vh] w-full items-center justify-center rounded-lg border border-slate-700 bg-slate-900 text-slate-500">
+              No cover image
+            </div>
+          )}
+          <div className="space-y-2">
+            <p className="text-xs font-bold uppercase tracking-widest text-indigo-300">Quiz Preview</p>
+            <h2 className="text-2xl font-black sm:text-4xl">{title || 'Untitled Quiz'}</h2>
+          </div>
+          <button type="button" onClick={() => setHasStarted(true)} className="rounded-lg bg-indigo-600 px-6 py-3 text-sm font-extrabold text-white hover:bg-indigo-500">
+            Start Preview
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="fixed inset-0 z-[60] overflow-y-auto bg-slate-100 text-slate-900" role="dialog" aria-modal="true" aria-label="Quiz preview">
+      <header className="relative flex min-h-14 items-center justify-center border-b border-slate-200 bg-white px-14 py-3 text-center shadow-sm">
+        <h2 className="max-w-3xl break-words text-sm font-extrabold sm:text-xl">{title || 'Untitled Quiz'}... {question.text || 'Question text'}</h2>
+        <button type="button" onClick={onClose} className="absolute right-3 rounded-lg border border-slate-200 bg-white p-2 text-slate-600 hover:bg-slate-100" aria-label="Close preview">
+            <X className="h-5 w-5" />
+        </button>
+      </header>
+
+      <main className="mx-auto flex min-h-[calc(100dvh-3.5rem)] max-w-6xl flex-col justify-between gap-4 p-3 sm:gap-6 sm:p-6">
+        <div className="grid flex-1 grid-cols-[48px_minmax(0,1fr)_64px] items-center gap-2 sm:grid-cols-[80px_minmax(0,1fr)_100px] sm:gap-5">
+          <div className={`flex aspect-square items-center justify-center rounded-full text-lg font-black text-white shadow-lg sm:text-2xl ${timeLeft <= 5 ? 'bg-rose-600' : 'bg-violet-600'}`}>
+            <Clock className="mr-1 h-4 w-4 sm:h-5 sm:w-5" />{timeLeft}
+          </div>
+
+          <div className="flex min-h-48 items-center justify-center overflow-hidden bg-white sm:min-h-64">
+            {(question.mediaUrl || question.imageUrl) ? (
+              question.mediaType === 'video' ? (
+                <video src={question.mediaUrl || question.imageUrl} controls className="max-h-[42vh] max-w-full object-contain" />
+              ) : (
+                <img src={question.mediaUrl || question.imageUrl} alt="Question visual" className="max-h-[42vh] max-w-full object-contain" />
+              )
+            ) : (
+              <p className="px-4 text-center text-lg font-bold text-slate-500">{question.text || 'Question image'}</p>
+            )}
+          </div>
+
+          <div className="text-center">
+            <span className="block text-2xl font-black tabular-nums sm:text-3xl">{answeredTeams.filter(team => team.hasAnswered).length}</span>
+            <span className="text-xs font-bold sm:text-sm">Answers</span>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-1.5 sm:gap-2">
+          {options.map((option, index) => {
+            const { background, shape: Shape } = answerStyles[index % answerStyles.length];
+            return (
+              <div key={`${index}-${option}`} className={`flex min-h-14 items-center gap-2 p-3 text-white shadow-sm sm:min-h-16 sm:gap-4 sm:px-5 ${background} ${isComplete && index === question.correctAnswer ? 'ring-4 ring-white ring-inset' : ''}`}>
+                <Shape className="h-7 w-7 shrink-0 fill-current sm:h-9 sm:w-9" aria-hidden="true" />
+                <span className="break-words text-sm font-extrabold sm:text-base">{option || `Option ${letters[index]}`}</span>
+                {isComplete && index === question.correctAnswer && <CheckCircle2 className="ml-auto h-5 w-5 shrink-0" />}
+              </div>
+            );
+          })}
+        </div>
+
+        <div className="flex items-center justify-between gap-3 text-xs text-slate-500">
+          <span>Question {questionIndex + 1} of {questions.length} · Preview only</span>
+          {isComplete ? (
+            <button type="button" onClick={() => moveToQuestion(questionIndex + 1 < questions.length ? questionIndex + 1 : 0)} className="rounded-md bg-slate-800 px-4 py-2 font-bold text-white hover:bg-slate-700">
+              {questionIndex + 1 < questions.length ? 'Next Question' : 'Restart Preview'}
+            </button>
+          ) : (
+            <button type="button" onClick={() => moveToQuestion(questionIndex + 1 < questions.length ? questionIndex + 1 : 0)} className="rounded-md bg-sky-500 px-4 py-2 font-bold text-white hover:bg-sky-600">
+              Skip
+            </button>
+          )}
+        </div>
+      </main>
     </div>
   );
 };

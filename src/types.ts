@@ -33,6 +33,7 @@ export interface Quiz {
   isArchived?: boolean;
   title: string;
   description?: string;
+  coverImage?: string;
   stream: string;
   subject?: string;
   difficulty: Difficulty;

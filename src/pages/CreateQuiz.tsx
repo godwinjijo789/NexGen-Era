@@ -16,12 +16,33 @@ interface CreateQuizProps {
 
 export const CreateQuiz: React.FC<CreateQuizProps> = ({ currentUser, setCurrentPage, onQuizSaved, quiz }) => {
   const [title, setTitle] = useState(quiz?.title || '');
+  const [coverImage, setCoverImage] = useState(quiz?.coverImage || '');
   const [stream, setStream] = useState(quiz?.stream || quiz?.subject || 'General');
   const [difficulty, setDifficulty] = useState<Difficulty>(quiz?.difficulty || 'Medium');
   const initialTimer = quiz?.questions[0]?.timerSeconds ?? 20;
   const [timerChoice, setTimerChoice] = useState(timerPresets.includes(initialTimer) ? String(initialTimer) : 'custom');
   const [customTimerInput, setCustomTimerInput] = useState(String(initialTimer));
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
+
+  const handleCoverUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      setErrorMessage('Choose an image file for the quiz cover.');
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      setErrorMessage('Quiz cover images must be 5 MB or smaller.');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      setCoverImage(String(reader.result || ''));
+      setErrorMessage('');
+    };
+    reader.readAsDataURL(file);
+  };
 
   const handleApplyTimerToAll = (seconds: number) => {
     const updated = questions.map(q => ({
@@ -218,6 +239,7 @@ export const CreateQuiz: React.FC<CreateQuizProps> = ({ currentUser, setCurrentP
       quizId: quiz?.quizId || `quiz_${Date.now()}`,
       hostId: quiz?.hostId || currentUser?.userId || 'user_host_1',
       title,
+      coverImage: coverImage || undefined,
       stream,
       difficulty,
       questions,
@@ -309,6 +331,30 @@ export const CreateQuiz: React.FC<CreateQuizProps> = ({ currentUser, setCurrentP
                   placeholder="e.g. Advanced World Geography"
                   className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 sm:py-3 text-white placeholder:text-slate-600 focus:outline-none focus:border-indigo-500 font-medium text-sm sm:text-base"
                 />
+              </div>
+
+              <div className="space-y-2">
+                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400">Quiz Cover Image</label>
+                <label className="flex cursor-pointer items-center justify-center gap-2 rounded-xl border border-dashed border-slate-700 bg-slate-950 px-4 py-3 text-sm font-semibold text-slate-300 hover:border-indigo-500 hover:text-white">
+                  <ImageIcon className="h-4 w-4" />
+                  <span>{coverImage ? 'Change cover image' : 'Upload a cover image'}</span>
+                  <input type="file" accept="image/*" onChange={handleCoverUpload} className="sr-only" />
+                </label>
+                {coverImage && (
+                  <div className="relative overflow-hidden rounded-xl border border-slate-800">
+                    <img src={coverImage} alt="Quiz cover preview" className="h-32 w-full object-cover" />
+                    <button
+                      type="button"
+                      onClick={() => setCoverImage('')}
+                      className="absolute right-2 top-2 rounded-lg bg-slate-950/80 p-2 text-white hover:bg-red-600"
+                      aria-label="Remove quiz cover image"
+                      title="Remove cover image"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </div>
+                )}
+                <p className="text-[11px] text-slate-500">Image files up to 5 MB.</p>
               </div>
 
               <div>
@@ -572,6 +618,7 @@ export const CreateQuiz: React.FC<CreateQuizProps> = ({ currentUser, setCurrentP
       {isPreviewOpen && (
         <QuizPreview
           title={title}
+          coverImage={coverImage}
           questions={questions}
           onClose={() => setIsPreviewOpen(false)}
         />
