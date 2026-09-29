@@ -23,6 +23,7 @@ export const MyQuizzes: React.FC<MyQuizzesProps> = ({ currentUser, setCurrentPag
     showQuestionAndAnswersToParticipants: true,
     showMediaToParticipants: true,
     folderOrder: 1,
+    separateScore: false,
   });
   const [addQuizFolderId, setAddQuizFolderId] = useState<string | null>(null);
   const [isStartingFolder, setIsStartingFolder] = useState(false);
@@ -145,6 +146,7 @@ export const MyQuizzes: React.FC<MyQuizzesProps> = ({ currentUser, setCurrentPag
       questions: folderQuizzes.flatMap(quiz => quiz.questions.map(question => ({
         ...question,
         id: `${quiz.quizId}_${question.id}`,
+        excludeFromFolderTotal: quiz.separateScore ?? false,
       }))),
       createdAt: new Date().toISOString(),
     };
@@ -187,6 +189,7 @@ export const MyQuizzes: React.FC<MyQuizzesProps> = ({ currentUser, setCurrentPag
       showQuestionAndAnswersToParticipants: quiz.showQuestionAndAnswersToParticipants ?? true,
       showMediaToParticipants: quiz.showMediaToParticipants ?? true,
       folderOrder: quiz.folderId ? Math.max(1, folderQuizzes.findIndex(item => item.quizId === quiz.quizId) + 1) : 1,
+      separateScore: quiz.separateScore ?? false,
     });
   };
 
@@ -208,6 +211,7 @@ export const MyQuizzes: React.FC<MyQuizzesProps> = ({ currentUser, setCurrentPag
           showQuestionAndAnswersToParticipants: settingsDraft.showQuestionAndAnswersToParticipants,
           showMediaToParticipants: settingsDraft.showMediaToParticipants,
           folderOrder: settingsQuiz.folderId ? folderPositions.get(q.quizId) : undefined,
+          separateScore: settingsDraft.separateScore,
         };
       }
       return settingsQuiz.folderId && q.folderId === settingsQuiz.folderId
@@ -447,6 +451,19 @@ export const MyQuizzes: React.FC<MyQuizzesProps> = ({ currentUser, setCurrentPag
                   type="checkbox"
                   checked={settingsDraft.showMediaToParticipants}
                   onChange={e => setSettingsDraft({ ...settingsDraft, showMediaToParticipants: e.target.checked })}
+                  className="h-4 w-4 rounded border-slate-700 bg-slate-900 text-indigo-600 focus:ring-indigo-500"
+                />
+              </label>
+
+              <label className="flex items-center justify-between gap-4 rounded-xl border border-slate-800 bg-slate-950/60 p-3 cursor-pointer">
+                <div>
+                  <div className="text-sm font-semibold text-white">Keep this quiz score separate</div>
+                  <div className="text-[11px] text-slate-400">Its points stay in this quiz's breakdown and do not count toward the folder total.</div>
+                </div>
+                <input
+                  type="checkbox"
+                  checked={settingsDraft.separateScore}
+                  onChange={e => setSettingsDraft({ ...settingsDraft, separateScore: e.target.checked })}
                   className="h-4 w-4 rounded border-slate-700 bg-slate-900 text-indigo-600 focus:ring-indigo-500"
                 />
               </label>

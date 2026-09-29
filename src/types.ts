@@ -24,6 +24,7 @@ export interface Question {
   imageUrl?: string;
   mediaUrl?: string;
   mediaType?: 'image' | 'video';
+  excludeFromFolderTotal?: boolean;
 }
 
 export interface Quiz {
@@ -31,6 +32,7 @@ export interface Quiz {
   hostId: string;
   folderId?: string;
   folderOrder?: number;
+  separateScore?: boolean;
   isArchived?: boolean;
   title: string;
   description?: string;

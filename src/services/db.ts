@@ -57,6 +57,7 @@ const toQuiz = (row: Row): Quiz => ({
   hostId: row.host_id,
   folderId: row.folder_id || undefined,
   folderOrder: row.folder_order ?? undefined,
+  separateScore: row.separate_score ?? false,
   isArchived: row.is_archived || false,
   title: row.title,
   description: row.description || undefined,
@@ -140,6 +141,7 @@ const quizRow = (quiz: Quiz) => ({
   host_id: quiz.hostId,
   folder_id: quiz.folderId || null,
   folder_order: quiz.folderOrder ?? null,
+  separate_score: quiz.separateScore ?? false,
   is_archived: quiz.isArchived ?? false,
   title: quiz.title,
   description: quiz.description || null,
@@ -351,7 +353,8 @@ export const StorageDB = {
       return previousQuiz && (
         previousQuiz.showQuestionAndAnswersToParticipants !== quiz.showQuestionAndAnswersToParticipants ||
         previousQuiz.showMediaToParticipants !== quiz.showMediaToParticipants ||
-        previousQuiz.folderOrder !== quiz.folderOrder
+        previousQuiz.folderOrder !== quiz.folderOrder ||
+        previousQuiz.separateScore !== quiz.separateScore
       );
     });
 
@@ -366,6 +369,9 @@ export const StorageDB = {
       }
       if (previousQuiz.folderOrder !== quiz.folderOrder) {
         update.folder_order = quiz.folderOrder ?? null;
+      }
+      if (previousQuiz.separateScore !== quiz.separateScore) {
+        update.separate_score = quiz.separateScore ?? false;
       }
       return supabase.from('quizzes').update(update).eq('quiz_id', quiz.quizId)
         .select('quiz_id, show_question_and_answers_to_participants, show_media_to_participants, folder_order')
