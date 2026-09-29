@@ -289,7 +289,7 @@ export const MyQuizzes: React.FC<MyQuizzesProps> = ({ currentUser, setCurrentPag
                 className="inline-flex items-center justify-center gap-2 rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-bold text-white hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 <Play className="h-4 w-4 fill-current" />
-                {isStartingFolder ? 'Preparing...' : 'Start Folder'}
+                {isStartingFolder ? 'Preparing...' : 'Start Live Quiz'}
               </button>
             </div>
           </div>
