@@ -265,7 +265,7 @@ export const HostGameScreen: React.FC<HostGameScreenProps> = ({ game, quiz, setC
           <div className="text-center space-y-6 sm:space-y-8 max-w-3xl mx-auto w-full">
             <div className="p-5 sm:p-8 rounded-2xl sm:rounded-3xl bg-slate-900/80 border border-slate-800 backdrop-blur-xl shadow-2xl space-y-4 sm:space-y-6">
               {currentQuiz.coverImage && (
-                <img src={currentQuiz.coverImage} alt={`${currentQuiz.title} cover`} className="mx-auto max-h-56 w-full max-w-2xl rounded-xl object-cover" />
+                <img src={currentQuiz.coverImage} alt={`${currentQuiz.title} cover`} className="mx-auto max-h-[60vh] max-w-full rounded-xl bg-slate-950/50 object-contain" />
               )}
               <h1 className="text-xl font-black text-white sm:text-3xl">{currentQuiz.title}</h1>
               <div className="inline-flex items-center space-x-2 px-3 py-1.5 sm:px-4 sm:py-2 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs sm:text-sm font-semibold animate-pulse">

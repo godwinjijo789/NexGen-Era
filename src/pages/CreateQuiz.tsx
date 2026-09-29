@@ -341,7 +341,7 @@ export const CreateQuiz: React.FC<CreateQuizProps> = ({ currentUser, setCurrentP
                 </label>
                 {coverImage && (
                   <div className="relative overflow-hidden rounded-xl border border-slate-800">
-                    <img src={coverImage} alt="Quiz cover preview" className="h-32 w-full object-cover" />
+                    <img src={coverImage} alt="Quiz cover preview" className="h-32 w-full bg-slate-950/50 object-contain" />
                     <button
                       type="button"
                       onClick={() => setCoverImage('')}
