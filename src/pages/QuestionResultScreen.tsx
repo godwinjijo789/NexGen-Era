@@ -13,6 +13,7 @@ export const QuestionResultScreen: React.FC<QuestionResultScreenProps> = ({ part
   const [activeGame, setActiveGame] = useState<GameSession | null>(StorageDB.getActiveGame());
   const [participants, setParticipants] = useState<Participant[]>(StorageDB.getParticipants());
   const [responses, setResponses] = useState<Response[]>(StorageDB.getResponses());
+  const [revealedAnswerIndex, setRevealedAnswerIndex] = useState<number | null>(null);
   const { playSuccess, playError } = useSound();
 
   const currentQuiz = activeGame?.quiz || StorageDB.getQuizzes().find(q => q.quizId === activeGame?.quizId);
@@ -52,6 +53,23 @@ export const QuestionResultScreen: React.FC<QuestionResultScreenProps> = ({ part
   }, []);
 
   useEffect(() => {
+    if (!activeGame || activeGame.status !== 'question_result') {
+      setRevealedAnswerIndex(null);
+      return;
+    }
+
+    let cancelled = false;
+    setRevealedAnswerIndex(null);
+    void StorageDB.getRevealedQuestionAnswer(activeGame.gameId)
+      .then(answerIndex => {
+        if (!cancelled) setRevealedAnswerIndex(answerIndex);
+      })
+      .catch(error => console.error('Unable to load revealed answer:', error));
+
+    return () => { cancelled = true; };
+  }, [activeGame?.gameId, activeGame?.status, activeGame?.currentQuestionIndex]);
+
+  useEffect(() => {
     if (myResponse) {
       if (myResponse.isCorrect) {
         playSuccess();
@@ -85,6 +103,15 @@ export const QuestionResultScreen: React.FC<QuestionResultScreenProps> = ({ part
             {myResponse?.isCorrect ? `You earned +${myResponse.points} points!` : 'Better luck on the next question!'}
           </p>
         </div>
+
+        {revealedAnswerIndex !== null && currentQuestion?.options[revealedAnswerIndex] !== undefined && (
+          <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-4 text-left">
+            <p className="text-[10px] font-bold uppercase tracking-wider text-emerald-300">Correct Answer</p>
+            <p className="mt-1 break-words text-base font-extrabold text-white sm:text-lg">
+              {currentQuestion.options[revealedAnswerIndex]}
+            </p>
+          </div>
+        )}
 
         <div className="grid grid-cols-2 gap-3 sm:gap-4 py-3 sm:py-4 border-y border-slate-800">
           <div>

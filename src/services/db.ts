@@ -527,6 +527,11 @@ export const StorageDB = {
     throw new Error('The results response was incomplete. Please retry.');
   },
 
+  async getRevealedQuestionAnswer(gameId: string) {
+    const result = await supabase.rpc('get_revealed_question_answer', { p_game_id: gameId });
+    return Number(requireSuccess(result));
+  },
+
   async submitResponse(response: Response) {
     const result = await supabase.rpc('submit_game_response', {
       p_game_id: response.gameId,

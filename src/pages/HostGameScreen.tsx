@@ -454,11 +454,6 @@ export const HostGameScreen: React.FC<HostGameScreenProps> = ({ game, quiz, setC
                 <h2 className="text-lg sm:text-2xl font-extrabold text-white leading-snug">{currentQuestion.text}</h2>
               </div>
 
-              <h3 className="text-lg sm:text-2xl font-bold text-white">Correct Answer:</h3>
-              <div className="p-4 sm:p-6 rounded-xl sm:rounded-2xl bg-emerald-600/20 border border-emerald-500/40 text-emerald-300 text-lg sm:text-2xl font-extrabold max-w-xl mx-auto break-words">
-                {currentQuestion.options[currentQuestion.correctAnswer]}
-              </div>
-
               {isFolderQuizComplete && (
                 <section className="mx-auto max-w-2xl rounded-xl border border-indigo-500/20 bg-slate-950/70 p-4 text-left sm:p-5">
                   <h3 className="text-base font-extrabold text-white sm:text-lg">{currentQuestion.sourceQuizTitle} · Team Points</h3>
