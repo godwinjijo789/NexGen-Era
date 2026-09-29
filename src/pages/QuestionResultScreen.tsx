@@ -165,7 +165,7 @@ export const QuestionResultScreen: React.FC<QuestionResultScreenProps> = ({ part
 
               {topParticipants.length > 3 && (
                 <div className="max-h-56 space-y-2 overflow-y-auto pr-1">
-                  {topParticipants.slice(3, 10).map(topParticipant => (
+                  {topParticipants.slice(3).map(topParticipant => (
                     <div key={topParticipant.participantId} className="flex items-center justify-between rounded-xl border border-slate-800 bg-slate-950/80 px-3 py-2.5">
                       <div className="flex min-w-0 items-center gap-3">
                         <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-slate-800 text-xs font-black text-slate-200">{topParticipant.rank}</span>

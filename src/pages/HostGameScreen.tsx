@@ -443,7 +443,7 @@ export const HostGameScreen: React.FC<HostGameScreenProps> = ({ game, quiz, setC
           <div className="space-y-5 sm:space-y-8 max-w-4xl mx-auto w-full text-center">
             <div className="p-5 sm:p-8 rounded-2xl sm:rounded-3xl bg-slate-900/80 border border-slate-800 backdrop-blur-xl shadow-2xl space-y-4 sm:space-y-6">
               <div className="inline-flex items-center space-x-2 px-3 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs sm:text-sm font-bold">
-                <CheckCircle2 className="w-4 h-4 sm:w-5 sm:h-5" />
+                <Trophy className="w-4 h-4 sm:w-5 sm:h-5" />
                 <span>Question Results</span>
               </div>
 

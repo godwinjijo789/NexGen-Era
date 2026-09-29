@@ -1,26 +1,26 @@
-import React, { useState, useEffect } from 'react';
+import React, { lazy, Suspense, useState, useEffect } from 'react';
 import { PageId, User, Quiz, GameSession, Participant } from './types';
 import { StorageDB } from './services/db';
 import { supabase } from './lib/supabase';
 import { Navbar } from './components/Navbar';
 
-import { LandingPage } from './pages/LandingPage';
-import { LoginPage } from './pages/LoginPage';
-import { RegisterPage } from './pages/RegisterPage';
-import { HostDashboard } from './pages/HostDashboard';
-import { CreateQuiz } from './pages/CreateQuiz';
-import { MyQuizzes } from './pages/MyQuizzes';
-import { QuizDetails } from './pages/QuizDetails';
-import { StartLiveGame } from './pages/StartLiveGame';
-import { HostGameScreen } from './pages/HostGameScreen';
-import { JoinGame } from './pages/JoinGame';
-import { StudentWaitingRoom } from './pages/StudentWaitingRoom';
-import { StudentQuestionScreen } from './pages/StudentQuestionScreen';
-import { QuestionResultScreen } from './pages/QuestionResultScreen';
-import { FinalResults } from './pages/FinalResults';
-import { QuizHistory } from './pages/QuizHistory';
-import { AdminDashboard } from './pages/AdminDashboard';
-import { ProfileSettings } from './pages/ProfileSettings';
+const LandingPage = lazy(() => import('./pages/LandingPage').then(module => ({ default: module.LandingPage })));
+const LoginPage = lazy(() => import('./pages/LoginPage').then(module => ({ default: module.LoginPage })));
+const RegisterPage = lazy(() => import('./pages/RegisterPage').then(module => ({ default: module.RegisterPage })));
+const HostDashboard = lazy(() => import('./pages/HostDashboard').then(module => ({ default: module.HostDashboard })));
+const CreateQuiz = lazy(() => import('./pages/CreateQuiz').then(module => ({ default: module.CreateQuiz })));
+const MyQuizzes = lazy(() => import('./pages/MyQuizzes').then(module => ({ default: module.MyQuizzes })));
+const QuizDetails = lazy(() => import('./pages/QuizDetails').then(module => ({ default: module.QuizDetails })));
+const StartLiveGame = lazy(() => import('./pages/StartLiveGame').then(module => ({ default: module.StartLiveGame })));
+const HostGameScreen = lazy(() => import('./pages/HostGameScreen').then(module => ({ default: module.HostGameScreen })));
+const JoinGame = lazy(() => import('./pages/JoinGame').then(module => ({ default: module.JoinGame })));
+const StudentWaitingRoom = lazy(() => import('./pages/StudentWaitingRoom').then(module => ({ default: module.StudentWaitingRoom })));
+const StudentQuestionScreen = lazy(() => import('./pages/StudentQuestionScreen').then(module => ({ default: module.StudentQuestionScreen })));
+const QuestionResultScreen = lazy(() => import('./pages/QuestionResultScreen').then(module => ({ default: module.QuestionResultScreen })));
+const FinalResults = lazy(() => import('./pages/FinalResults').then(module => ({ default: module.FinalResults })));
+const QuizHistory = lazy(() => import('./pages/QuizHistory').then(module => ({ default: module.QuizHistory })));
+const AdminDashboard = lazy(() => import('./pages/AdminDashboard').then(module => ({ default: module.AdminDashboard })));
+const ProfileSettings = lazy(() => import('./pages/ProfileSettings').then(module => ({ default: module.ProfileSettings })));
 
 export default function App() {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
@@ -115,6 +115,7 @@ export default function App() {
 
       <main className="flex-1">
         {realtimeError && <div role="status" className="border-b border-amber-500/30 bg-amber-500/10 px-4 py-2 text-center text-sm text-amber-200">Realtime is temporarily unavailable. Game state is syncing automatically until the connection recovers.</div>}
+        <Suspense fallback={<div role="status" className="min-h-[40vh] flex items-center justify-center text-sm text-slate-400">Loading page...</div>}>
         {currentPage === 'landing' && <LandingPage setCurrentPage={setCurrentPage} currentUser={currentUser} />}
         {currentPage === 'login' && <LoginPage setCurrentPage={setCurrentPage} onLogin={handleLogin} />}
         {currentPage === 'register' && <RegisterPage setCurrentPage={setCurrentPage} onLogin={handleLogin} />}
@@ -250,6 +251,7 @@ export default function App() {
             onUserUpdated={setCurrentUser}
           />
         )}
+        </Suspense>
       </main>
     </div>
   );
