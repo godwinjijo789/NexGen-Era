@@ -344,6 +344,38 @@ export const StorageDB = {
     emit({ type: 'QUIZZES_UPDATED' });
   },
 
+  async saveQuizSettings(nextQuizzes: Quiz[]) {
+    const previousQuizzesById = new Map(quizzes.map(quiz => [quiz.quizId, quiz]));
+    const changedQuizzes = nextQuizzes.filter(quiz => {
+      const previousQuiz = previousQuizzesById.get(quiz.quizId);
+      return previousQuiz && (
+        previousQuiz.showQuestionAndAnswersToParticipants !== quiz.showQuestionAndAnswersToParticipants ||
+        previousQuiz.showMediaToParticipants !== quiz.showMediaToParticipants ||
+        previousQuiz.folderOrder !== quiz.folderOrder
+      );
+    });
+
+    const results = await Promise.all(changedQuizzes.map(quiz => {
+      const previousQuiz = previousQuizzesById.get(quiz.quizId)!;
+      const update: Row = {};
+      if (previousQuiz.showQuestionAndAnswersToParticipants !== quiz.showQuestionAndAnswersToParticipants) {
+        update.show_question_and_answers_to_participants = quiz.showQuestionAndAnswersToParticipants ?? true;
+      }
+      if (previousQuiz.showMediaToParticipants !== quiz.showMediaToParticipants) {
+        update.show_media_to_participants = quiz.showMediaToParticipants ?? true;
+      }
+      if (previousQuiz.folderOrder !== quiz.folderOrder) {
+        update.folder_order = quiz.folderOrder ?? null;
+      }
+      return supabase.from('quizzes').update(update).eq('quiz_id', quiz.quizId);
+    }));
+    const failedResult = results.find(result => result.error);
+    if (failedResult?.error) throw new Error(failedResult.error.message);
+
+    quizzes = nextQuizzes.filter(quiz => !quiz.isArchived);
+    emit({ type: 'QUIZZES_UPDATED' });
+  },
+
   async saveFolderSessionQuiz(quiz: Quiz) {
     const result = await supabase.from('quizzes').insert(quizRow({ ...quiz, isArchived: true })).select('*').single();
     return toQuiz(requireSuccess(result) as Row);

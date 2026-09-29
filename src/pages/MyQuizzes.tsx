@@ -215,11 +215,11 @@ export const MyQuizzes: React.FC<MyQuizzesProps> = ({ currentUser, setCurrentPag
         : q;
     });
     try {
-      await StorageDB.saveQuizzes(updated);
+      await StorageDB.saveQuizSettings(updated);
       setQuizzes(updated);
       setSettingsQuiz(null);
-    } catch {
-      window.alert('Unable to save quiz settings. Please try again.');
+    } catch (error) {
+      window.alert(error instanceof Error ? `Unable to save quiz settings: ${error.message}` : 'Unable to save quiz settings. Please try again.');
     }
   };
 
