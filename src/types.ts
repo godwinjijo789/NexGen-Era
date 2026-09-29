@@ -24,6 +24,8 @@ export interface Question {
   imageUrl?: string;
   mediaUrl?: string;
   mediaType?: 'image' | 'video';
+  sourceQuizId?: string;
+  sourceQuizTitle?: string;
   excludeFromFolderTotal?: boolean;
 }
 

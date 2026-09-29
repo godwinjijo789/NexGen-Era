@@ -143,6 +143,8 @@ export const MyQuizzes: React.FC<MyQuizzesProps> = ({ currentUser, setCurrentPag
       questions: folderQuizzes.flatMap(quiz => quiz.questions.map(question => ({
         ...question,
         id: `${quiz.quizId}_${question.id}`,
+        sourceQuizId: quiz.quizId,
+        sourceQuizTitle: quiz.title,
         excludeFromFolderTotal: quiz.separateScore ?? false,
       }))),
       createdAt: new Date().toISOString(),

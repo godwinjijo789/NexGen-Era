@@ -60,9 +60,23 @@ export const HostGameScreen: React.FC<HostGameScreenProps> = ({ game, quiz, setC
   }, []);
 
   const currentQuiz = activeGame?.quiz || quiz || StorageDB.getQuizzes().find(q => q.quizId === activeGame?.quizId);
-  const currentQuestion = currentQuiz?.questions[activeGame?.currentQuestionIndex || 0];
+  const currentQuestionIndex = activeGame?.currentQuestionIndex ?? 0;
+  const currentQuestion = currentQuiz?.questions[currentQuestionIndex];
   const topParticipants = [...participants].sort((a, b) => b.score - a.score);
   const topTenParticipants = topParticipants.slice(0, 10);
+  const currentSourceQuestionIds = new Set(currentQuiz?.questions
+    .filter(question => question.sourceQuizId === currentQuestion?.sourceQuizId)
+    .map(question => question.id) || []);
+  const currentSourceQuizLeaderboard = participants.map(participant => ({
+    ...participant,
+    quizPoints: responses
+      .filter(response => response.gameId === activeGame?.gameId &&
+        response.participantId === participant.participantId &&
+        currentSourceQuestionIds.has(response.questionId))
+      .reduce((total, response) => total + response.points, 0),
+  })).sort((first, second) => second.quizPoints - first.quizPoints || first.joinedAt.localeCompare(second.joinedAt));
+  const isFolderQuizComplete = Boolean(currentQuiz?.isArchived && currentQuestion?.sourceQuizId &&
+    currentQuiz.questions[currentQuestionIndex + 1]?.sourceQuizId !== currentQuestion.sourceQuizId);
 
   const persistGame = async (updatedGame: GameSession | null) => {
     setActionError('');
@@ -445,6 +459,25 @@ export const HostGameScreen: React.FC<HostGameScreenProps> = ({ game, quiz, setC
                 {currentQuestion.options[currentQuestion.correctAnswer]}
               </div>
 
+              {isFolderQuizComplete && (
+                <section className="mx-auto max-w-2xl rounded-xl border border-indigo-500/20 bg-slate-950/70 p-4 text-left sm:p-5">
+                  <h3 className="text-base font-extrabold text-white sm:text-lg">{currentQuestion.sourceQuizTitle} · Team Points</h3>
+                  <p className="mt-1 text-xs text-slate-400">
+                    {currentQuestion.excludeFromFolderTotal
+                      ? 'Separate score: these points are not added to the folder total.'
+                      : 'These points are included in the folder total.'}
+                  </p>
+                  <div className="mt-3 max-h-72 space-y-2 overflow-y-auto">
+                    {currentSourceQuizLeaderboard.map((participant, index) => (
+                      <div key={participant.participantId} className="flex items-center justify-between gap-3 rounded-lg border border-slate-800 bg-slate-900 px-3 py-2">
+                        <span className="min-w-0 truncate text-sm font-semibold text-white">{index + 1}. {participant.nickname}</span>
+                        <span className="shrink-0 text-sm font-black text-indigo-300">{participant.quizPoints} pts</span>
+                      </div>
+                    ))}
+                  </div>
+                </section>
+              )}
+
               <div className="mx-auto max-h-80 max-w-xl space-y-2 overflow-y-auto pt-2 text-left sm:space-y-3 sm:pt-4">
                 <h4 className="text-[11px] sm:text-xs font-semibold uppercase tracking-wider text-slate-400">Top 10 Teams · Total Points</h4>
                 {topTenParticipants.map((p, idx) => (
@@ -472,7 +505,7 @@ export const HostGameScreen: React.FC<HostGameScreenProps> = ({ game, quiz, setC
               onClick={handleNextOrLeaderboard}
               className="w-full sm:w-auto px-6 sm:px-8 py-3.5 sm:py-4 rounded-xl sm:rounded-2xl bg-indigo-600 hover:bg-indigo-500 text-white font-extrabold text-base sm:text-lg shadow-xl shadow-indigo-600/30 transition-all flex items-center justify-center space-x-2 mx-auto active:scale-98"
             >
-              <span>{activeGame.currentQuestionIndex + 1 >= currentQuiz.questions.length ? 'View Final Podium' : 'Next Question'}</span>
+              <span>{activeGame.currentQuestionIndex + 1 >= currentQuiz.questions.length ? 'View Final Podium' : isFolderQuizComplete ? 'Next Quiz' : 'Next Question'}</span>
               <ArrowRight className="w-5 h-5" />
             </button>
           </div>

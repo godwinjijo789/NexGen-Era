@@ -518,6 +518,9 @@ export const StorageDB = {
 
     const payload = result.data as { game?: Row; participants?: Row[] } | null;
     if (payload?.game && Array.isArray(payload.participants)) {
+      const responseResult = await supabase.from('game_responses').select('*').eq('game_id', gameId).order('submitted_at');
+      if (responseResult.error) throw new Error(responseResult.error.message);
+      responses = (responseResult.data as Row[]).map(toResponse);
       return applySnapshot(payload.game, payload.participants);
     }
 
