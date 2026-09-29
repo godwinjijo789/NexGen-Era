@@ -45,7 +45,7 @@ export const StudentWaitingRoom: React.FC<StudentWaitingRoomProps> = ({ particip
 
         <div className="max-w-md w-full bg-slate-900/80 border border-slate-800 rounded-2xl sm:rounded-3xl p-5 sm:p-8 shadow-2xl backdrop-blur-xl relative z-10 text-center space-y-5 sm:space-y-6">
         {activeGame?.quiz?.coverImage && (
-          <img src={activeGame.quiz.coverImage} alt={`${activeGame.quiz.title} cover`} className="max-h-52 max-w-full rounded-xl bg-slate-950/50 object-contain" />
+          <img src={activeGame.quiz.coverImage} alt={`${activeGame.quiz.title} cover`} className="mx-auto block max-h-[35vh] max-w-full w-auto rounded-xl bg-slate-950/50 object-contain" />
         )}
 
         <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl sm:rounded-3xl bg-gradient-to-tr from-emerald-500 to-teal-600 flex items-center justify-center mx-auto shadow-xl shadow-emerald-500/30 overflow-hidden">

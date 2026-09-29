@@ -340,8 +340,8 @@ export const CreateQuiz: React.FC<CreateQuizProps> = ({ currentUser, setCurrentP
                   <input type="file" accept="image/*" onChange={handleCoverUpload} className="sr-only" />
                 </label>
                 {coverImage && (
-                  <div className="relative overflow-hidden rounded-xl border border-slate-800">
-                    <img src={coverImage} alt="Quiz cover preview" className="h-32 w-full bg-slate-950/50 object-contain" />
+                  <div className="relative rounded-xl border border-slate-800 p-2">
+                    <img src={coverImage} alt="Quiz cover preview" className="mx-auto block max-h-[40vh] max-w-full w-auto rounded-lg bg-slate-950/50 object-contain" />
                     <button
                       type="button"
                       onClick={() => setCoverImage('')}

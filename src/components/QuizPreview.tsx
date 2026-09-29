@@ -77,8 +77,8 @@ export const QuizPreview: React.FC<QuizPreviewProps> = ({ title, coverImage, que
         <button type="button" onClick={onClose} className="absolute right-4 top-4 rounded-lg border border-slate-700 bg-slate-900 p-2 text-slate-300 hover:text-white sm:right-8 sm:top-8" aria-label="Close preview">
           <X className="h-5 w-5" />
         </button>
-        <div className="mx-auto flex min-h-[calc(100dvh-2rem)] max-w-4xl flex-col items-center justify-center gap-6 py-12 text-center">
-          {coverImage && <img src={coverImage} alt={`${title || 'Quiz'} cover`} className="max-h-[55vh] max-w-full rounded-lg bg-slate-900 object-contain shadow-2xl" />}
+        <div className="mx-auto flex min-h-[calc(100dvh-2rem)] max-w-6xl flex-col items-center justify-center gap-6 py-12 text-center">
+          {coverImage && <img src={coverImage} alt={`${title || 'Quiz'} cover`} className="max-h-[75vh] max-w-full w-auto rounded-lg bg-slate-900 object-contain shadow-2xl" />}
           <div className="space-y-2">
             <p className="text-xs font-bold uppercase tracking-widest text-indigo-300">Quiz Preview</p>
             <h2 className="text-2xl font-black sm:text-4xl">{title || 'Untitled Quiz'}</h2>
