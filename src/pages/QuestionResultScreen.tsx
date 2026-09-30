@@ -18,6 +18,7 @@ export const QuestionResultScreen: React.FC<QuestionResultScreenProps> = ({ part
 
   const currentQuiz = activeGame?.quiz || StorageDB.getQuizzes().find(q => q.quizId === activeGame?.quizId);
   const currentQuestion = currentQuiz?.questions[activeGame?.currentQuestionIndex || 0];
+  const isFolderQuestion = Boolean(currentQuiz?.isArchived && currentQuestion?.sourceQuizId);
   const sourceQuestionIds = new Set(currentQuiz?.questions
     .filter(question => currentQuestion?.sourceQuizId
       ? question.sourceQuizId === currentQuestion.sourceQuizId
@@ -124,8 +125,17 @@ export const QuestionResultScreen: React.FC<QuestionResultScreenProps> = ({ part
 
         <div className="grid grid-cols-2 gap-3 sm:gap-4 py-3 sm:py-4 border-y border-slate-800">
           <div>
-            <div className="text-xl sm:text-2xl font-black text-indigo-400">{currentParticipant?.score ?? 0}</div>
-            <div className="text-[10px] sm:text-xs uppercase tracking-wider text-slate-500 font-bold mt-1">Total Score</div>
+            <div className="text-xl sm:text-2xl font-black text-indigo-400">
+              {isFolderQuestion && currentParticipant
+                ? getSourceQuizPoints(currentParticipant.participantId)
+                : currentParticipant?.score ?? 0}
+            </div>
+            <div className="text-[10px] sm:text-xs uppercase tracking-wider text-slate-500 font-bold mt-1">
+              {isFolderQuestion ? 'Quiz Points' : 'Total Score'}
+            </div>
+            {isFolderQuestion && (
+              <div className="mt-1 text-[10px] font-semibold text-slate-400">Folder total: {currentParticipant?.score ?? 0}</div>
+            )}
           </div>
           <div>
             <div className="text-xl sm:text-2xl font-black text-amber-400">#{currentParticipant?.rank ? currentParticipant.rank : '-'}</div>

@@ -657,7 +657,17 @@ export const StorageDB = {
       channel
         .on('broadcast', { event: 'game_state' }, ({ payload }) => {
           if (!payload?.game) return;
-          activeGame = toGame(payload.game, activeGame?.quiz);
+          const previousGame = activeGame?.gameId === gameId ? activeGame : null;
+          const updatedGame = toGame(payload.game, previousGame?.quiz);
+          const statusOrder = { waiting: 0, question_active: 1, question_result: 2, leaderboard: 3, finished: 4 };
+          if (previousGame && (
+            (previousGame.updatedAt ?? 0) > (updatedGame.updatedAt ?? 0) ||
+            previousGame.currentQuestionIndex > updatedGame.currentQuestionIndex ||
+            (previousGame.currentQuestionIndex === updatedGame.currentQuestionIndex &&
+              (previousGame.updatedAt ?? 0) === (updatedGame.updatedAt ?? 0) &&
+              statusOrder[previousGame.status] > statusOrder[updatedGame.status])
+          )) return;
+          activeGame = updatedGame;
           if (Array.isArray(payload.participants)) {
             participants = (payload.participants as Row[]).map(row => row.participant_id ? toParticipant(row) : row as Participant);
             if (currentParticipant?.gameId === gameId) {
