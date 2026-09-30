@@ -18,6 +18,15 @@ export const QuestionResultScreen: React.FC<QuestionResultScreenProps> = ({ part
 
   const currentQuiz = activeGame?.quiz || StorageDB.getQuizzes().find(q => q.quizId === activeGame?.quizId);
   const currentQuestion = currentQuiz?.questions[activeGame?.currentQuestionIndex || 0];
+  const sourceQuestionIds = new Set(currentQuiz?.questions
+    .filter(question => currentQuestion?.sourceQuizId
+      ? question.sourceQuizId === currentQuestion.sourceQuizId
+      : !currentQuiz?.isArchived)
+    .map(question => question.id) || []);
+  const getSourceQuizPoints = (participantId: string) => responses
+    .filter(response => response.gameId === activeGame?.gameId &&
+      response.participantId === participantId && sourceQuestionIds.has(response.questionId))
+    .reduce((total, response) => total + response.points, 0);
 
   const myResponse = responses.find(r => r.gameId === activeGame?.gameId && r.participantId === participant?.participantId && r.questionId === currentQuestion?.id);
 
@@ -157,6 +166,9 @@ export const QuestionResultScreen: React.FC<QuestionResultScreenProps> = ({ part
                       <div className={`${podiumHeight} flex w-full flex-col items-center justify-center gap-2 rounded-t-xl border border-white/10 ${isFirst ? 'bg-gradient-to-b from-amber-500/40 to-amber-950/80' : isSecond ? 'bg-gradient-to-b from-slate-400/30 to-slate-800' : 'bg-gradient-to-b from-orange-700/40 to-orange-950/80'}`}>
                         <span className={`flex h-8 w-8 items-center justify-center rounded-lg text-xs font-black ${medalColor}`}>{podiumParticipant.rank}</span>
                         <span className="max-w-full px-1 text-center text-xs font-black text-white sm:text-sm">{podiumParticipant.score} pts</span>
+                        {currentQuestion?.sourceQuizId && (
+                          <span className="max-w-full px-1 text-center text-[10px] font-bold text-indigo-200">{getSourceQuizPoints(podiumParticipant.participantId)} quiz pts</span>
+                        )}
                       </div>
                     </div>
                   );
@@ -176,9 +188,14 @@ export const QuestionResultScreen: React.FC<QuestionResultScreenProps> = ({ part
                             {topParticipant.nickname.charAt(0).toUpperCase()}
                           </div>
                         )}
-                        <span className="truncate text-sm font-bold text-white">{topParticipant.nickname}</span>
+                        <span className="min-w-0 truncate text-sm font-bold text-white">{topParticipant.nickname}</span>
                       </div>
-                      <span className="ml-2 shrink-0 text-sm font-black text-indigo-300">{topParticipant.score} pts</span>
+                      <div className="ml-2 shrink-0 text-right">
+                        <div className="text-sm font-black text-indigo-300">{topParticipant.score} pts</div>
+                        {currentQuestion?.sourceQuizId && (
+                          <div className="text-[10px] font-bold text-slate-400">{getSourceQuizPoints(topParticipant.participantId)} quiz pts</div>
+                        )}
+                      </div>
                     </div>
                   ))}
                 </div>

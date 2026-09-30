@@ -454,13 +454,13 @@ export const HostGameScreen: React.FC<HostGameScreenProps> = ({ game, quiz, setC
                 <h2 className="text-lg sm:text-2xl font-extrabold text-white leading-snug">{currentQuestion.text}</h2>
               </div>
 
-              {isFolderQuizComplete && (
+              {currentQuiz.isArchived && currentQuestion.sourceQuizId && (
                 <section className="mx-auto max-w-2xl rounded-xl border border-indigo-500/20 bg-slate-950/70 p-4 text-left sm:p-5">
-                  <h3 className="text-base font-extrabold text-white sm:text-lg">{currentQuestion.sourceQuizTitle} · Team Points</h3>
+                  <h3 className="text-base font-extrabold text-white sm:text-lg">{currentQuestion.sourceQuizTitle} · Points</h3>
                   <p className="mt-1 text-xs text-slate-400">
                     {currentQuestion.excludeFromFolderTotal
-                      ? 'Separate score: these points are not added to the folder total.'
-                      : 'These points are included in the folder total.'}
+                      ? 'Points earned in this quiz are shown separately from the folder total.'
+                      : 'Points earned in this quiz are included in the folder total.'}
                   </p>
                   <div className="mt-3 max-h-72 space-y-2 overflow-y-auto">
                     {currentSourceQuizLeaderboard.map((participant, index) => (
