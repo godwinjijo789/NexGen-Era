@@ -203,11 +203,16 @@ export const CreateQuiz: React.FC<CreateQuizProps> = ({ currentUser, setCurrentP
       setErrorMessage('Please enter a topic for AI generation.');
       return;
     }
+    const availableQuestionCount = 50 - questions.length;
+    if (availableQuestionCount <= 0) {
+      setErrorMessage('Maximum limit of 50 questions reached for a quiz set.');
+      return;
+    }
     setIsGeneratingAI(true);
     setErrorMessage('');
     try {
-      const generated = await generateQuizWithAI(aiTopicInput, 5, difficulty);
-      setQuestions([...questions, ...generated]);
+      const generated = await generateQuizWithAI(aiTopicInput, Math.min(5, availableQuestionCount), difficulty);
+      setQuestions(currentQuestions => [...currentQuestions, ...generated.slice(0, 50 - currentQuestions.length)]);
       setShowAiModal(false);
       setAiTopicInput('');
     } catch (err) {
@@ -225,9 +230,34 @@ export const CreateQuiz: React.FC<CreateQuizProps> = ({ currentUser, setCurrentP
       setErrorMessage('Please enter a quiz title before saving.');
       return;
     }
+    if (questions.length === 0) {
+      setErrorMessage('A quiz must contain at least one question.');
+      return;
+    }
     for (let i = 0; i < questions.length; i++) {
-      if (!questions[i].text.trim()) {
+      const question = questions[i];
+      if (!question.text.trim()) {
         setErrorMessage(`Question #${i + 1} text is empty. Please enter question text.`);
+        setActiveQuestionIndex(i);
+        return;
+      }
+      if (question.options.length < 2 || question.options.length > 5) {
+        setErrorMessage(`Question #${i + 1} must have between 2 and 5 answer options.`);
+        setActiveQuestionIndex(i);
+        return;
+      }
+      if (question.options.some(option => !option.trim())) {
+        setErrorMessage(`Question #${i + 1} has an empty answer option.`);
+        setActiveQuestionIndex(i);
+        return;
+      }
+      if (!Number.isInteger(question.correctAnswer) || question.correctAnswer < 0 || question.correctAnswer >= question.options.length) {
+        setErrorMessage(`Question #${i + 1} must have a valid correct answer selected.`);
+        setActiveQuestionIndex(i);
+        return;
+      }
+      if (!Number.isInteger(question.timerSeconds) || question.timerSeconds < 5 || question.timerSeconds > 300) {
+        setErrorMessage(`Question #${i + 1} timer must be between 5 and 300 seconds.`);
         setActiveQuestionIndex(i);
         return;
       }

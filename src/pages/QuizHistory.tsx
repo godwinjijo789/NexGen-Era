@@ -34,14 +34,23 @@ export const QuizHistory: React.FC<QuizHistoryProps> = ({ currentUser, setCurren
     .filter(summary => summary.gameCount > 0 && summary.participants.length > 0);
 
   const handleExportCSV = (record: GameHistoryRecord) => {
-    let csvContent = "data:text/csv;charset=utf-8,";
-    csvContent += "Rank,Nickname,Participant ID,Score,Correct Answers\n";
-    
-    record.participants.forEach((p, idx) => {
-      csvContent += `${idx + 1},"${p.nickname}","${p.participantId || ''}",${p.score},${p.correctAnswers}\n`;
-    });
-
-    const encodedUri = encodeURI(csvContent);
+    const escapeCsvCell = (value: string | number) => {
+      const text = String(value);
+      const safeText = /^[\t\r ]*[=+\-@]/.test(text) ? `'${text}` : text;
+      return `"${safeText.replace(/"/g, '""')}"`;
+    };
+    const rows = [
+      ['Rank', 'Nickname', 'Participant ID', 'Score', 'Correct Answers'],
+      ...record.participants.map((participant, index) => [
+        index + 1,
+        participant.nickname,
+        participant.participantId || '',
+        participant.score,
+        participant.correctAnswers,
+      ]),
+    ];
+    const csvContent = rows.map(row => row.map(escapeCsvCell).join(',')).join('\r\n');
+    const encodedUri = `data:text/csv;charset=utf-8,${encodeURIComponent(csvContent)}`;
     const link = document.createElement("a");
     link.setAttribute("href", encodedUri);
     link.setAttribute("download", `NexGen_Era_Results_${record.quizTitle.replace(/\s+/g, '_')}.csv`);

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { User, PageId, GameSession } from '../types';
 import { StorageDB } from '../services/db';
 import { Zap, BookOpen, Shield, LogOut, Home, History, Settings, Menu, X, PlusCircle } from 'lucide-react';
@@ -13,10 +13,16 @@ interface NavbarProps {
 
 export const Navbar: React.FC<NavbarProps> = ({ currentUser, currentPage, setCurrentPage, activeGame, onLogout }) => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const isGameInProgress = Boolean(activeGame && activeGame.status !== 'finished');
   const quizzes = StorageDB.getQuizzes();
   const participants = StorageDB.getParticipants();
 
+  useEffect(() => {
+    if (isGameInProgress) setMobileMenuOpen(false);
+  }, [isGameInProgress]);
+
   const handleNav = (page: PageId) => {
+    if (isGameInProgress) return;
     setCurrentPage(page);
     setMobileMenuOpen(false);
   };
@@ -32,12 +38,13 @@ export const Navbar: React.FC<NavbarProps> = ({ currentUser, currentPage, setCur
         {/* Brand Logo */}
         <div 
           onClick={() => {
+            if (isGameInProgress) return;
             if (!currentUser) handleNav('landing');
             else if (currentUser.role === 'host') handleNav('host_dashboard');
             else if (currentUser.role === 'admin') handleNav('admin_dashboard');
             else handleNav('landing');
           }} 
-          className="flex items-center space-x-2.5 sm:space-x-3.5 cursor-pointer group select-none"
+          className={`flex items-center space-x-2.5 sm:space-x-3.5 group select-none ${isGameInProgress ? 'cursor-default' : 'cursor-pointer'}`}
         >
           <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl bg-gradient-to-tr from-indigo-600 via-purple-600 to-pink-500 flex items-center justify-center shadow-lg shadow-indigo-500/25 group-hover:scale-105 transition-all">
             <Zap className="w-5 h-5 sm:w-6 sm:h-6 text-white animate-pulse" />
@@ -57,7 +64,7 @@ export const Navbar: React.FC<NavbarProps> = ({ currentUser, currentPage, setCur
 
         {/* Desktop Navigation Links */}
         <nav className="hidden md:flex items-center space-x-1 lg:space-x-2">
-          {currentUser?.role === 'host' && (
+          {!isGameInProgress && currentUser?.role === 'host' && (
             <>
               <button
                 onClick={() => handleNav('host_dashboard')}
@@ -89,7 +96,7 @@ export const Navbar: React.FC<NavbarProps> = ({ currentUser, currentPage, setCur
             </>
           )}
 
-          {currentUser?.role === 'admin' && (
+          {!isGameInProgress && currentUser?.role === 'admin' && (
             <button
               onClick={() => handleNav('admin_dashboard')}
               className={`px-3.5 py-2 rounded-xl text-sm font-semibold transition-all flex items-center space-x-2 ${
@@ -105,7 +112,7 @@ export const Navbar: React.FC<NavbarProps> = ({ currentUser, currentPage, setCur
 
         {/* Desktop Profile & Actions */}
         <div className="hidden md:flex items-center space-x-3">
-          {currentUser ? (
+          {currentUser && !isGameInProgress ? (
             <div className="flex items-center space-x-2.5 bg-slate-900/90 border border-slate-800 rounded-2xl p-1.5 pr-3 shadow-xl">
               <div
                 onClick={() => handleNav('profile_settings')}
@@ -141,7 +148,7 @@ export const Navbar: React.FC<NavbarProps> = ({ currentUser, currentPage, setCur
                 <LogOut className="w-4 h-4" />
               </button>
             </div>
-          ) : (
+          ) : !currentUser ? (
             <div className="flex items-center space-x-2">
               <button
                 onClick={() => handleNav('login')}
@@ -150,23 +157,25 @@ export const Navbar: React.FC<NavbarProps> = ({ currentUser, currentPage, setCur
                 Sign In
               </button>
             </div>
-          )}
+          ) : null}
         </div>
 
         {/* Mobile Header Right Controls: Quick Action & Hamburger Menu */}
         <div className="flex items-center space-x-2 md:hidden">
-          <button
-            onClick={() => setMobileMenuOpen(prev => !prev)}
-            aria-label="Toggle navigation menu"
-            className="w-10 h-10 rounded-xl bg-slate-900 border border-slate-800 flex items-center justify-center text-slate-300 hover:text-white hover:bg-slate-800 active:scale-95 transition-all"
-          >
-            {mobileMenuOpen ? <X className="w-5 h-5 text-indigo-400" /> : <Menu className="w-5 h-5" />}
-          </button>
+          {!isGameInProgress && (
+            <button
+              onClick={() => setMobileMenuOpen(prev => !prev)}
+              aria-label="Toggle navigation menu"
+              className="w-10 h-10 rounded-xl bg-slate-900 border border-slate-800 flex items-center justify-center text-slate-300 hover:text-white hover:bg-slate-800 active:scale-95 transition-all"
+            >
+              {mobileMenuOpen ? <X className="w-5 h-5 text-indigo-400" /> : <Menu className="w-5 h-5" />}
+            </button>
+          )}
         </div>
       </div>
 
       {/* Mobile Menu Drawer Overlay */}
-      {mobileMenuOpen && (
+      {mobileMenuOpen && !isGameInProgress && (
         <div className="md:hidden border-t border-slate-800/90 bg-slate-950/98 backdrop-blur-2xl px-4 py-5 space-y-4 shadow-2xl animate-in slide-in-from-top duration-200">
           {currentUser && (
             <div className="flex items-center justify-between p-3.5 rounded-2xl bg-slate-900/90 border border-slate-800">

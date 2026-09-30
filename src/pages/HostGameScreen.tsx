@@ -20,7 +20,9 @@ export const HostGameScreen: React.FC<HostGameScreenProps> = ({ game, quiz, setC
   const [joinLink, setJoinLink] = useState<string>('');
   const [actionError, setActionError] = useState('');
   const [isRevealing, setIsRevealing] = useState(false);
+  const [isTransitioning, setIsTransitioning] = useState(false);
   const resultsInProgress = useRef(false);
+  const transitionInProgress = useRef(false);
 
   useEffect(() => {
     if (game?.gamePin || activeGame?.gamePin) {
@@ -82,8 +84,10 @@ export const HostGameScreen: React.FC<HostGameScreenProps> = ({ game, quiz, setC
     setActionError('');
     try {
       await StorageDB.setActiveGame(updatedGame);
+      return true;
     } catch (error) {
       setActionError(getSupabaseErrorMessage(error, 'Unable to save the game update. Please retry.'));
+      return false;
     }
   };
 
@@ -123,8 +127,10 @@ export const HostGameScreen: React.FC<HostGameScreenProps> = ({ game, quiz, setC
     );
   }
 
-  const handleStartQuiz = () => {
-    resultsInProgress.current = false;
+  const handleStartQuiz = async () => {
+    if (activeGame.status !== 'waiting' || transitionInProgress.current) return;
+    transitionInProgress.current = true;
+    setIsTransitioning(true);
     const updated: GameSession = {
       ...activeGame,
       status: 'question_active',
@@ -132,8 +138,12 @@ export const HostGameScreen: React.FC<HostGameScreenProps> = ({ game, quiz, setC
       questionStartTime: StorageDB.getSynchronizedNow(),
       quiz: currentQuiz || activeGame.quiz || quiz || null
     };
-    void persistGame(updated);
-    setActiveGame(updated);
+    try {
+      if (await persistGame(updated)) resultsInProgress.current = false;
+    } finally {
+      transitionInProgress.current = false;
+      setIsTransitioning(false);
+    }
   };
 
   const handleShowResults = async () => {
@@ -155,19 +165,31 @@ export const HostGameScreen: React.FC<HostGameScreenProps> = ({ game, quiz, setC
     }
   };
 
-  const handleNextOrLeaderboard = () => {
+  const handleNextOrLeaderboard = async () => {
+    if (activeGame.status !== 'question_result' || transitionInProgress.current) return;
+    transitionInProgress.current = true;
+    setIsTransitioning(true);
     const nextIdx = activeGame.currentQuestionIndex + 1;
-    if (nextIdx >= currentQuiz.questions.length) {
-      // Game Finished
-      const updatedGame: GameSession = { ...activeGame, status: 'finished', endedAt: new Date().toISOString() };
-      void persistGame(updatedGame);
-      setActiveGame(updatedGame);
+    const isFinished = nextIdx >= currentQuiz.questions.length;
+    const updatedGame: GameSession = isFinished
+      ? { ...activeGame, status: 'finished', endedAt: new Date().toISOString() }
+      : {
+        ...activeGame,
+        status: 'question_active',
+        currentQuestionIndex: nextIdx,
+        questionStartTime: StorageDB.getSynchronizedNow(),
+        quiz: currentQuiz || activeGame.quiz || quiz || null
+      };
 
-      // Save to history
+    try {
+        if (!isFinished) resultsInProgress.current = false;
+      if (!await persistGame(updatedGame)) return;
+        if (!isFinished) return;
+
       const history = StorageDB.getHistory();
       const finalParticipants = [...participants].sort((first, second) => second.score - first.score);
       const winner = finalParticipants[0] || null;
-      const quizBreakdown = currentQuiz.isArchived
+      const quizBreakdown = currentQuiz.isArchived && currentQuiz.folderId
         ? StorageDB.getQuizzes()
           .filter(sourceQuiz => sourceQuiz.folderId === currentQuiz.folderId)
           .map(sourceQuiz => {
@@ -201,7 +223,7 @@ export const HostGameScreen: React.FC<HostGameScreenProps> = ({ game, quiz, setC
         hostName: 'Host',
         totalParticipants: participants.length,
         startedAt: activeGame.startedAt,
-        endedAt: new Date().toISOString(),
+        endedAt: updatedGame.endedAt || new Date().toISOString(),
         winnerName: winner?.nickname,
         winnerScore: winner?.score,
         participants: finalParticipants,
@@ -211,17 +233,9 @@ export const HostGameScreen: React.FC<HostGameScreenProps> = ({ game, quiz, setC
         setActionError(getSupabaseErrorMessage(error, 'Unable to save game history. Please retry.'));
       });
       setCurrentPage('final_results');
-    } else {
-      resultsInProgress.current = false;
-      const updatedGame: GameSession = {
-        ...activeGame,
-        status: 'question_active',
-        currentQuestionIndex: nextIdx,
-        questionStartTime: StorageDB.getSynchronizedNow(),
-        quiz: currentQuiz || activeGame.quiz || quiz || null
-      };
-      void persistGame(updatedGame);
-      setActiveGame(updatedGame);
+    } finally {
+      transitionInProgress.current = false;
+      setIsTransitioning(false);
     }
   };
 
@@ -346,12 +360,12 @@ export const HostGameScreen: React.FC<HostGameScreenProps> = ({ game, quiz, setC
               </div>
 
               <button
-                disabled={participants.length === 0}
+                disabled={participants.length === 0 || isTransitioning}
                 onClick={handleStartQuiz}
                 className="w-full py-3.5 sm:py-4 rounded-xl sm:rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-600 hover:opacity-95 disabled:opacity-50 text-white font-extrabold text-base sm:text-lg shadow-xl shadow-emerald-500/25 transition-all flex items-center justify-center space-x-2 sm:space-x-3 active:scale-98"
               >
                 <Play className="w-5 h-5 sm:w-6 sm:h-6 fill-current" />
-                <span>Start Quiz Now</span>
+                <span>{isTransitioning ? 'Starting Quiz...' : 'Start Quiz Now'}</span>
               </button>
             </div>
           </div>
@@ -508,10 +522,11 @@ export const HostGameScreen: React.FC<HostGameScreenProps> = ({ game, quiz, setC
             </div>
 
             <button
+              disabled={isTransitioning}
               onClick={handleNextOrLeaderboard}
-              className="w-full sm:w-auto px-6 sm:px-8 py-3.5 sm:py-4 rounded-xl sm:rounded-2xl bg-indigo-600 hover:bg-indigo-500 text-white font-extrabold text-base sm:text-lg shadow-xl shadow-indigo-600/30 transition-all flex items-center justify-center space-x-2 mx-auto active:scale-98"
+              className="w-full sm:w-auto px-6 sm:px-8 py-3.5 sm:py-4 rounded-xl sm:rounded-2xl bg-indigo-600 hover:bg-indigo-500 disabled:cursor-wait disabled:opacity-60 text-white font-extrabold text-base sm:text-lg shadow-xl shadow-indigo-600/30 transition-all flex items-center justify-center space-x-2 mx-auto active:scale-98"
             >
-              <span>{activeGame.currentQuestionIndex + 1 >= currentQuiz.questions.length ? 'View Final Podium' : isFolderQuizComplete ? 'Next Quiz' : 'Next Question'}</span>
+              <span>{isTransitioning ? 'Saving...' : activeGame.currentQuestionIndex + 1 >= currentQuiz.questions.length ? 'View Final Podium' : isFolderQuizComplete ? 'Next Quiz' : 'Next Question'}</span>
               <ArrowRight className="w-5 h-5" />
             </button>
           </div>

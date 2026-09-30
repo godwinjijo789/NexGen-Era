@@ -13,7 +13,7 @@ interface FinalResultsProps {
 }
 
 export const FinalResults: React.FC<FinalResultsProps> = ({ quiz, setCurrentPage, isHost, isParticipant }) => {
-  const participants = StorageDB.getParticipants().sort((a, b) => b.score - a.score);
+  const participants = [...StorageDB.getParticipants()].sort((a, b) => b.score - a.score);
   const winner = participants.length > 0 ? participants[0] : null;
   const top3 = participants.slice(0, 3);
   const { playVictory } = useSound();

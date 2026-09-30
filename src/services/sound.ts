@@ -3,7 +3,7 @@ class SoundService {
 
   private getContext(): AudioContext | null {
     if (typeof window === 'undefined') return null;
-    const soundPref = localStorage.getItem('quizarena_sound');
+    const soundPref = localStorage.getItem('nexgen_sound');
     if (soundPref === 'false') return null;
 
     if (!this.audioCtx) {

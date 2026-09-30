@@ -51,31 +51,45 @@ export default function App() {
       const { data: { session } } = await supabase.auth.getSession();
       if (!mounted) return;
       if (session?.user) {
+        let user: User;
         try {
-          const user = await StorageDB.getProfile(session.user.id);
-          if (user.isDisabled) {
-            await supabase.auth.signOut();
-            return;
-          }
-          await StorageDB.initialize(user);
-          if (!mounted) return;
-          setCurrentParticipant(StorageDB.getCurrentParticipant());
-          setCurrentUser(user);
-          const restoredGame = StorageDB.getActiveGame();
-          setCurrentPage(user.role === 'host' ? 'host_dashboard' : user.role === 'admin' ? 'admin_dashboard' :
-            restoredGame?.status === 'question_active' ? 'student_question_screen' :
-              restoredGame?.status === 'question_result' || restoredGame?.status === 'leaderboard' ? 'question_result_screen' :
-                restoredGame?.status === 'finished' ? 'final_results' : restoredGame ? 'student_waiting_room' : 'join_game');
-        } catch {
-          await supabase.auth.signOut();
+          user = await StorageDB.getProfile(session.user.id);
+        } catch (error) {
+          console.error('Unable to restore the signed-in profile:', error);
+          return;
         }
+        if (user.isDisabled) {
+          await supabase.auth.signOut();
+          return;
+        }
+
+        try {
+          await StorageDB.initialize(user);
+        } catch (error) {
+          console.error('Unable to load signed-in app data:', error);
+          if (!mounted) return;
+          setCurrentUser(user);
+          setCurrentPage(user.role === 'host' ? 'host_dashboard' : user.role === 'admin' ? 'admin_dashboard' : 'join_game');
+          return;
+        }
+
+        if (!mounted) return;
+        setCurrentParticipant(StorageDB.getCurrentParticipant());
+        setCurrentUser(user);
+        const restoredGame = StorageDB.getActiveGame();
+        setCurrentPage(user.role === 'host' ? 'host_dashboard' : user.role === 'admin' ? 'admin_dashboard' :
+          restoredGame?.status === 'question_active' ? 'student_question_screen' :
+            restoredGame?.status === 'question_result' || restoredGame?.status === 'leaderboard' ? 'question_result_screen' :
+              restoredGame?.status === 'finished' ? 'final_results' : restoredGame ? 'student_waiting_room' : 'join_game');
       }
     };
     void restoreSession();
     const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
       if (!session) {
         void StorageDB.initialize(null);
+        setCurrentParticipant(null);
         setCurrentUser(null);
+        setCurrentPage('landing');
       }
     });
     const unsubscribe = StorageDB.subscribe(() => {

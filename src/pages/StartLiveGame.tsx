@@ -4,6 +4,15 @@ import { StorageDB, normalizeGamePin } from '../services/db';
 import { getSupabaseErrorMessage } from '../lib/supabase';
 import { Play, ArrowLeft, Zap } from 'lucide-react';
 
+const shuffleQuestions = (questions: Quiz['questions']) => {
+  const shuffled = [...questions];
+  for (let index = shuffled.length - 1; index > 0; index -= 1) {
+    const randomIndex = Math.floor(Math.random() * (index + 1));
+    [shuffled[index], shuffled[randomIndex]] = [shuffled[randomIndex], shuffled[index]];
+  }
+  return shuffled;
+};
+
 interface StartLiveGameProps {
   quiz: Quiz | null;
   currentUser: User | null;
@@ -38,10 +47,19 @@ export const StartLiveGame: React.FC<StartLiveGameProps> = ({ quiz, currentUser,
     setIsLaunching(true);
     setError('');
     try {
-      if (quiz.quizId.startsWith('folder_session_')) {
-        await StorageDB.saveFolderSessionQuiz(quiz);
+      const isFolderSession = quiz.quizId.startsWith('folder_session_');
+      const savesSessionQuiz = isFolderSession || randomizeQuestions;
+      const quizForGame: Quiz = savesSessionQuiz ? {
+        ...quiz,
+        quizId: `${isFolderSession ? 'folder_session' : 'quiz_session'}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+        isArchived: true,
+        questions: randomizeQuestions ? shuffleQuestions(quiz.questions) : quiz.questions,
+      } : quiz;
+
+      if (savesSessionQuiz) {
+        await StorageDB.saveFolderSessionQuiz(quizForGame);
       }
-      const newGame = await StorageDB.startGame(quiz, createGamePin());
+      const newGame = await StorageDB.startGame(quizForGame, createGamePin());
       onGameStarted(newGame);
       setCurrentPage('host_game_screen');
     } catch (launchError) {
