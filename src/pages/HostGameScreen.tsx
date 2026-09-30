@@ -474,7 +474,9 @@ export const HostGameScreen: React.FC<HostGameScreenProps> = ({ game, quiz, setC
               )}
 
               <div className="mx-auto max-h-80 max-w-xl space-y-2 overflow-y-auto pt-2 text-left sm:space-y-3 sm:pt-4">
-                <h4 className="text-[11px] sm:text-xs font-semibold uppercase tracking-wider text-slate-400">All Teams · Total Points</h4>
+                <h4 className="text-[11px] sm:text-xs font-semibold uppercase tracking-wider text-slate-400">
+                  {currentQuestion.sourceQuizId ? 'All Teams · Quiz + Folder Points' : 'All Teams · Total Points'}
+                </h4>
                 {topParticipants.map((p, idx) => (
                   <div key={p.participantId} className="flex items-center justify-between p-3 sm:p-3.5 rounded-xl bg-slate-950/80 border border-slate-800">
                     <div className="flex items-center space-x-2.5 sm:space-x-3 truncate">
@@ -490,7 +492,16 @@ export const HostGameScreen: React.FC<HostGameScreenProps> = ({ game, quiz, setC
                       )}
                       <span className="font-bold text-white text-sm sm:text-base truncate max-w-[120px] sm:max-w-xs">{p.nickname}</span>
                     </div>
-                    <span className="font-extrabold text-indigo-400 text-xs sm:text-sm">{p.score} pts</span>
+                    <div className="shrink-0 text-right">
+                      {currentQuestion.sourceQuizId && (
+                        <div className="font-extrabold text-indigo-300 text-xs sm:text-sm">
+                          {currentSourceQuizLeaderboard.find(team => team.participantId === p.participantId)?.quizPoints ?? 0} quiz pts
+                        </div>
+                      )}
+                      <div className="font-extrabold text-indigo-400 text-[10px] sm:text-xs">
+                        {p.score} {currentQuestion.sourceQuizId ? 'folder pts' : 'pts'}
+                      </div>
+                    </div>
                   </div>
                 ))}
               </div>

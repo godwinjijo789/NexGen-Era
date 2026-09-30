@@ -153,11 +153,11 @@ export const StudentQuestionScreen: React.FC<StudentQuestionScreenProps> = ({ pa
         )}
 
         {shouldShowMediaToParticipants && (currentQuestion.mediaUrl || currentQuestion.imageUrl) && (
-          <div className="max-w-md mx-auto rounded-2xl sm:rounded-3xl overflow-hidden border border-slate-800 shadow-xl">
+          <div className={`mx-auto rounded-2xl sm:rounded-3xl border border-slate-800 shadow-xl ${currentQuestion.mediaType === 'video' ? 'max-w-md overflow-hidden' : 'w-fit max-w-full'}`}>
             {currentQuestion.mediaType === 'video' ? (
               <video src={currentQuestion.mediaUrl || currentQuestion.imageUrl} controls className="w-full max-h-64 object-cover" />
             ) : (
-              <img src={currentQuestion.mediaUrl || currentQuestion.imageUrl} alt="Question visual" className="w-full h-40 sm:h-56 object-cover" />
+              <img src={currentQuestion.mediaUrl || currentQuestion.imageUrl} alt="Question visual" className="mx-auto block max-h-[65vh] max-w-full rounded-2xl object-contain sm:rounded-3xl" />
             )}
           </div>
         )}

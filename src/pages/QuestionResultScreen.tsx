@@ -165,10 +165,12 @@ export const QuestionResultScreen: React.FC<QuestionResultScreenProps> = ({ part
                       </div>
                       <div className={`${podiumHeight} flex w-full flex-col items-center justify-center gap-2 rounded-t-xl border border-white/10 ${isFirst ? 'bg-gradient-to-b from-amber-500/40 to-amber-950/80' : isSecond ? 'bg-gradient-to-b from-slate-400/30 to-slate-800' : 'bg-gradient-to-b from-orange-700/40 to-orange-950/80'}`}>
                         <span className={`flex h-8 w-8 items-center justify-center rounded-lg text-xs font-black ${medalColor}`}>{podiumParticipant.rank}</span>
-                        <span className="max-w-full px-1 text-center text-xs font-black text-white sm:text-sm">{podiumParticipant.score} pts</span>
                         {currentQuestion?.sourceQuizId && (
-                          <span className="max-w-full px-1 text-center text-[10px] font-bold text-indigo-200">{getSourceQuizPoints(podiumParticipant.participantId)} quiz pts</span>
+                          <span className="max-w-full px-1 text-center text-xs font-black text-indigo-100 sm:text-sm">{getSourceQuizPoints(podiumParticipant.participantId)} quiz pts</span>
                         )}
+                        <span className="max-w-full px-1 text-center text-xs font-black text-white sm:text-sm">
+                          {podiumParticipant.score} {currentQuestion?.sourceQuizId ? 'folder pts' : 'pts'}
+                        </span>
                       </div>
                     </div>
                   );
@@ -191,10 +193,12 @@ export const QuestionResultScreen: React.FC<QuestionResultScreenProps> = ({ part
                         <span className="min-w-0 truncate text-sm font-bold text-white">{topParticipant.nickname}</span>
                       </div>
                       <div className="ml-2 shrink-0 text-right">
-                        <div className="text-sm font-black text-indigo-300">{topParticipant.score} pts</div>
                         {currentQuestion?.sourceQuizId && (
-                          <div className="text-[10px] font-bold text-slate-400">{getSourceQuizPoints(topParticipant.participantId)} quiz pts</div>
+                          <div className="text-sm font-black text-indigo-300">{getSourceQuizPoints(topParticipant.participantId)} quiz pts</div>
                         )}
+                        <div className="text-xs font-black text-slate-300">
+                          {topParticipant.score} {currentQuestion?.sourceQuizId ? 'folder pts' : 'pts'}
+                        </div>
                       </div>
                     </div>
                   ))}
