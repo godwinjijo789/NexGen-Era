@@ -316,6 +316,28 @@ export const StorageDB = {
     if (activeGame?.gameId) await loadGame(activeGame.gameId);
   },
 
+  async refreshGameResults(gameId: string) {
+    const isHost = currentUser?.userId === activeGame?.hostId || currentUser?.role === 'admin';
+    const [participantResult, responseResult] = await Promise.all([
+      supabase.from('game_participants').select('*').eq('game_id', gameId)
+        .order('rank', { ascending: true }).order('joined_at', { ascending: true }),
+      isHost
+        ? supabase.from('game_responses').select('*').eq('game_id', gameId).order('submitted_at')
+        : supabase.rpc('get_game_responses', { p_game_id: gameId }),
+    ]);
+    participants = (requireSuccess(participantResult) as Row[]).map(toParticipant);
+    if (currentParticipant?.gameId === gameId) {
+      currentParticipant = participants.find(item => item.participantId === currentParticipant?.participantId) || currentParticipant;
+    }
+    emit({ type: 'PARTICIPANTS_UPDATED', participants });
+
+    if (!responseResult.error) {
+      responses = (responseResult.data as Row[]).map(toResponse);
+      emit({ type: 'RESPONSES_UPDATED', responses });
+    }
+    return { participants, responses };
+  },
+
   async saveUsers(nextUsers: User[]) {
     for (const user of nextUsers) {
       const result = await supabase.from('profiles').update({
@@ -648,7 +670,22 @@ export const StorageDB = {
           emit({ type: 'RESPONSES_UPDATED', responses });
         })
         .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'games', filter: `game_id=eq.${gameId}` }, payload => {
-          refresh();
+          const gameRow = payload.new as Row;
+          if (!gameRow?.game_id) return;
+          const previousGame = activeGame?.gameId === gameId ? activeGame : null;
+          const updatedGame = toGame(gameRow, previousGame?.quiz);
+          if (previousGame && (
+            (previousGame.updatedAt ?? 0) > (updatedGame.updatedAt ?? 0) ||
+            previousGame.currentQuestionIndex > updatedGame.currentQuestionIndex
+          )) return;
+          activeGame = updatedGame;
+          emit({ type: 'GAME_UPDATED', game: updatedGame });
+
+          if (updatedGame.status === 'question_result' || updatedGame.status === 'finished') {
+            void this.refreshGameResults(gameId).catch(error => {
+              console.error('[Realtime] Unable to load authoritative game results:', { gameId, error });
+            });
+          }
         })
         .on('postgres_changes', { event: '*', schema: 'public', table: 'game_participants', filter: `game_id=eq.${gameId}` }, payload => {
           const row = (payload.eventType === 'DELETE' ? payload.old : payload.new) as Row;
@@ -667,7 +704,6 @@ export const StorageDB = {
           }
           emit({ type: 'PARTICIPANTS_UPDATED', participants });
         })
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'game_responses', filter: `game_id=eq.${gameId}` }, refresh)
       .subscribe((status, error) => {
         if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
           console.error('[Realtime] Game subscription error:', { gameId, status, error });
